@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Register - CHC Secure Cloud Storage{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card shadow-modern fade-in">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-person-plus me-2"></i>Create New Account
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="registerForm">
+                    <!-- Username -->
+                    <div class="mb-4">
+                        <label for="username" class="form-label">
+                            <i class="bi bi-person-fill me-2 text-primary"></i>Username 
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg" 
+                               id="username" 
+                               name="username" 
+                               placeholder="Choose a username"
+                               required
+                               autofocus>
+                        <small class="form-text text-muted mt-2">
+                            <i class="bi bi-info-circle me-1"></i>This will be used to identify you as the file owner
+                        </small>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-4">
+                        <label for="email" class="form-label">
+                            <i class="bi bi-envelope-fill me-2 text-primary"></i>Email 
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input type="email" 
+                               class="form-control form-control-lg" 
+                               id="email" 
+                               name="email"
+                               placeholder="Enter your email"
+                               required>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="bi bi-lock-fill me-2 text-primary"></i>Password 
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input type="password" 
+                               class="form-control form-control-lg" 
+                               id="password" 
+                               name="password"
+                               placeholder="Choose a password (min 6 characters)"
+                               required
+                               minlength="6">
+                        <small class="form-text text-muted mt-2">
+                            <i class="bi bi-shield-check me-1"></i>Password must be at least 6 characters long
+                        </small>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid gap-2 mb-3">
+                        <button type="submit" class="btn btn-primary btn-lg" id="registerBtn">
+                            <i class="bi bi-person-plus me-2"></i>Register
+                        </button>
+                    </div>
+
+                    <!-- Login Link -->
+                    <div class="text-center">
+                        <p class="text-muted mb-0">
+                            Already have an account? 
+                            <a href="{{ url_for('login') }}" class="text-primary fw-bold">Login here</a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="card shadow-modern mt-4 fade-in" style="animation-delay: 0.2s;">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="bi bi-shield-check-fill text-success me-2"></i>Security Features
+                </h5>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <strong>Secure Password Storage:</strong> Passwords are hashed using PBKDF2-SHA256
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <strong>Session Management:</strong> Secure session tokens for authentication
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <strong>Access Control:</strong> Only authorized users can decrypt files
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form submission handling
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        const registerBtn = document.getElementById('registerBtn');
+        const originalText = registerBtn.innerHTML;
+        
+        // Show loading state
+        registerBtn.disabled = true;
+        registerBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registering...';
+        
+        // Re-enable after a timeout (in case of error)
+        setTimeout(function() {
+            registerBtn.disabled = false;
+            registerBtn.innerHTML = originalText;
+        }, 5000);
+    });
+
+    // Password strength indicator
+    document.getElementById('password').addEventListener('input', function(e) {
+        const password = e.target.value;
+        const strength = password.length >= 6 ? 'strong' : 'weak';
+        
+        // You can add visual feedback here if needed
+    });
+</script>
+{% endblock %}
+

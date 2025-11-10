@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Decrypt File - CHC Secure Cloud Storage{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow-modern fade-in">
+            <div class="card-header bg-success">
+                <h4 class="mb-0">
+                    <i class="bi bi-unlock-fill me-2"></i>Decrypt File
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- File Information -->
+                <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3">
+                            <i class="bi bi-info-circle-fill text-primary me-2"></i>File Information
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-fill text-primary me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <small class="text-muted d-block">File Name</small>
+                                        <strong>{{ filename }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-person-fill text-primary me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Owner</small>
+                                        <strong>{{ owner }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-people-fill text-primary me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Authorized Users</small>
+                                        <strong>
+                                            {% if authorized_users %}
+                                                {{ authorized_users|join(', ') }}
+                                            {% else %}
+                                                Owner only
+                                            {% endif %}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Decryption Form -->
+                <form method="POST" id="decryptForm">
+                    <!-- Submit Buttons -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg" id="decryptBtn">
+                            <i class="bi bi-unlock-fill me-2"></i>Decrypt & Download
+                        </button>
+                        <a href="{{ url_for('files') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Files
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="card shadow-modern mt-4 fade-in" style="animation-delay: 0.2s;">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="bi bi-shield-check-fill text-success me-2"></i>Security Notice
+                </h5>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        Only authorized users can decrypt this file
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        Decryption uses blockchain-verified access control
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        All decryption attempts are logged to the blockchain
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form submission handling
+    document.getElementById('decryptForm').addEventListener('submit', function(e) {
+        const decryptBtn = document.getElementById('decryptBtn');
+        const originalText = decryptBtn.innerHTML;
+        
+        // Show loading state
+        decryptBtn.disabled = true;
+        decryptBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Decrypting...';
+        
+        // Re-enable after a timeout (in case of error)
+        setTimeout(function() {
+            decryptBtn.disabled = false;
+            decryptBtn.innerHTML = originalText;
+        }, 10000);
+    });
+</script>
+{% endblock %}
