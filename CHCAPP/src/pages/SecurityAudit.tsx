@@ -1,47 +1,37 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BiShield, BiFile, BiUser, BiGroup, BiChevronLeft, BiLockOpen, BiListUl, BiCloudUpload, BiCheckCircle, BiXCircle, BiErrorAlt } from 'react-icons/bi'
+import { apiGet } from '../utils/api'
 
 export default function SecurityAudit() {
   const { fileId } = useParams<{ fileId: string }>()
 
-  // Mock data - replace with actual API call
-  const auditData = {
-    file_id: fileId || 'file123',
-    filename: 'document.pdf',
-    owner: 'admin',
-    authorized_users: ['John', 'Jane'],
-    security_verification: {
-      data_confidentiality: 'maintained',
-      access_control: 'enforced',
-      cryptographic_verification: 'verified',
-      security_events: {
-        successful_accesses: 5,
-        unauthorized_attempts: 2,
-        failed_decryptions: 1
+  const [auditData, setAuditData] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const run = async () => {
+      if (!fileId) return
+      try {
+        setLoading(true)
+        const data = await apiGet(`/api/security/${fileId}`)
+        if (isMounted) {
+          setAuditData(data)
+          setError(null)
+        }
+      } catch (e: any) {
+        if (isMounted) setError(e?.message || 'Failed to load security audit')
+      } finally {
+        if (isMounted) setLoading(false)
       }
-    },
-    audit_trail: [
-      {
-        event: 'file_uploaded',
-        description: 'File uploaded and encrypted',
-        timestamp: '2024-01-15 10:30:00',
-        user: 'admin'
-      },
-      {
-        event: 'authorized_access',
-        description: 'File successfully decrypted',
-        timestamp: '2024-01-15 11:00:00',
-        user: 'John'
-      },
-      {
-        event: 'unauthorized_access_attempt',
-        description: 'Unauthorized user attempted to access file',
-        timestamp: '2024-01-15 12:00:00',
-        user: 'unauthorized_user',
-        reason: 'User not in authorized list'
-      }
-    ]
-  }
+    }
+    run()
+    return () => {
+      isMounted = false
+    }
+  }, [fileId])
 
   const getEventIcon = (event: string) => {
     switch (event) {
@@ -75,13 +65,25 @@ export default function SecurityAudit() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {loading && (
+        <div className="text-center text-gray-500 dark:text-gray-400">Loading security audit...</div>
+      )}
+      {error && (
+        <div className="text-center text-red-600 dark:text-red-400">{error}</div>
+      )}
+
+      {!loading && auditData && (
+      <>
       {/* File Information Card */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 border border-blue-200 dark:border-blue-800">
         <div className="bg-blue-600 text-white rounded-lg p-4 -mt-6 -mx-6 mb-6">
           <h2 className="text-xl font-bold flex items-center space-x-2">
             <BiShield />
-            <span>Security Audit Trail</span>
+            <span>File Security Audit Trail</span>
           </h2>
+          <p className="text-sm text-blue-100 mt-1">
+            Complete security history and access logs for this file
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -89,9 +91,9 @@ export default function SecurityAudit() {
             <h6 className="text-blue-600 dark:text-blue-400 font-semibold mb-3">File Information</h6>
             <ul className="space-y-2 text-gray-700 dark:text-gray-300">
               <li><strong>File ID:</strong> {auditData.file_id}</li>
-              <li><strong>Filename:</strong> {auditData.filename}</li>
-              <li><strong>Owner:</strong> {auditData.owner}</li>
-              <li><strong>Authorized Users:</strong> {auditData.authorized_users.join(', ') || 'Owner only'}</li>
+              <li><strong>Filename:</strong> {auditData.filename || 'N/A'}</li>
+              <li><strong>Owner:</strong> {auditData.owner || 'N/A'}</li>
+              <li><strong>Authorized Users:</strong> {Array.isArray(auditData.authorized_users) ? auditData.authorized_users.join(', ') : (auditData.authorized_users || 'Owner only')}</li>
             </ul>
           </div>
           <div>
@@ -101,36 +103,36 @@ export default function SecurityAudit() {
                 <strong>Data Confidentiality:</strong>{' '}
                 <span
                   className={`px-2 py-1 rounded text-sm ${
-                    auditData.security_verification.data_confidentiality === 'maintained'
+                    auditData.security_verification?.data_confidentiality === 'maintained'
                       ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                       : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
                   }`}
                 >
-                  {auditData.security_verification.data_confidentiality}
+                  {auditData.security_verification?.data_confidentiality || 'unknown'}
                 </span>
               </li>
               <li>
                 <strong>Access Control:</strong>{' '}
                 <span
                   className={`px-2 py-1 rounded text-sm ${
-                    auditData.security_verification.access_control === 'enforced'
+                    auditData.security_verification?.access_control === 'enforced'
                       ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                       : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
                   }`}
                 >
-                  {auditData.security_verification.access_control}
+                  {auditData.security_verification?.access_control || 'unknown'}
                 </span>
               </li>
               <li>
                 <strong>Cryptographic Verification:</strong>{' '}
                 <span
                   className={`px-2 py-1 rounded text-sm ${
-                    auditData.security_verification.cryptographic_verification === 'verified'
+                    auditData.security_verification?.cryptographic_verification === 'verified'
                       ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                       : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
                   }`}
                 >
-                  {auditData.security_verification.cryptographic_verification}
+                  {auditData.security_verification?.cryptographic_verification || 'unknown'}
                 </span>
               </li>
             </ul>
@@ -149,25 +151,25 @@ export default function SecurityAudit() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 text-center">
             <h3 className="text-3xl font-bold text-green-600 mb-1">
-              {auditData.security_verification.security_events.successful_accesses}
+              {auditData.security_verification?.security_events?.successful_accesses ?? 0}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">Successful Accesses</p>
           </div>
           <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 text-center">
             <h3 className="text-3xl font-bold text-red-600 mb-1">
-              {auditData.security_verification.security_events.unauthorized_attempts}
+              {auditData.security_verification?.security_events?.unauthorized_attempts ?? 0}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">Unauthorized Attempts</p>
           </div>
           <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 text-center">
             <h3 className="text-3xl font-bold text-yellow-600 mb-1">
-              {auditData.security_verification.security_events.failed_decryptions}
+              {auditData.security_verification?.security_events?.failed_decryptions ?? 0}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">Failed Decryptions</p>
           </div>
           <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 text-center">
             <h3 className="text-3xl font-bold text-blue-600 mb-1">
-              {auditData.audit_trail.length}
+              {auditData.audit_trail?.length ?? 0}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">Total Events</p>
           </div>
@@ -214,7 +216,8 @@ export default function SecurityAudit() {
         ) : (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <BiFile className="text-5xl mx-auto mb-3" />
-            <p>No security events recorded for this file.</p>
+            <p>No security events recorded for this secure file yet.</p>
+            <p className="text-sm mt-2">Security events will appear here after file access attempts.</p>
           </div>
         )}
       </div>
@@ -236,6 +239,8 @@ export default function SecurityAudit() {
           <span>Decrypt File</span>
         </Link>
       </div>
+      </>
+      )}
     </div>
   )
 }

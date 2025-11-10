@@ -1,17 +1,36 @@
 import { useState, FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BiLogIn, BiUser, BiLock, BiInfoCircle, BiErrorAlt } from 'react-icons/bi'
+import { apiPost, setAuthToken } from '../utils/api'
 
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // TODO: Implement login logic
-    setTimeout(() => setLoading(false), 2000)
+    setError('')
+    
+    try {
+      const result = await apiPost('/api/login', { username, password })
+      if (result.success) {
+        setAuthToken(result.session_token, result.user)
+        // Trigger storage event to update App.tsx
+        window.dispatchEvent(new Event('storage'))
+        // Small delay to ensure state updates
+        setTimeout(() => navigate('/files'), 100)
+      } else {
+        setError(result.message || 'Login failed')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -21,8 +40,11 @@ export default function Login() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
             <BiLogIn className="text-blue-600" />
-            <span>Login to Your Account</span>
+            <span>Login to File Management System</span>
           </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            Access your secure files with blockchain-protected encryption
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -39,6 +61,7 @@ export default function Login() {
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
               placeholder="Enter your username"
+              autoComplete="username"
               required
               autoFocus
             />
@@ -57,9 +80,18 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
               placeholder="Enter your password"
+              autoComplete="current-password"
               required
             />
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center space-x-2 text-red-700 dark:text-red-300">
+              <BiErrorAlt />
+              <span>{error}</span>
+            </div>
+          )}
 
           {/* Submit Button */}
           <button

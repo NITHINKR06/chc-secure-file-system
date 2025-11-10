@@ -14,6 +14,9 @@ This is the main web application that implements the complete 7-step secure file
 
 # Import Flask and web framework components
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, session
+from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from functools import wraps  # For decorators
 import os  # File system operations
 import json  # JSON data handling
@@ -24,16 +27,61 @@ import encryption  # CHC encryption module
 import blockchain  # Blockchain management module
 from typing import Dict, Optional  # Type hints for better code documentation
 import io  # Input/output operations for file handling
+import logging  # For proper logging
+from dotenv import load_dotenv  # For environment variables
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import custom modules for system functionality
 from data_manager import DataManager, KeyManager  # Secure data storage and key management
 from auth import UserManager  # User authentication and management
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO if os.getenv('FLASK_ENV') != 'production' else logging.WARNING,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Flask application configuration
 app = Flask(__name__)  # Create Flask application instance
-app.config['SECRET_KEY'] = os.urandom(32).hex()  # Generate random secret key for flash messages
-app.config['UPLOAD_FOLDER'] = 'uploads'  # Directory for storing uploaded files
+
+# Get SECRET_KEY from environment variable or generate one (but warn in production)
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    if os.getenv('FLASK_ENV') == 'production':
+        logger.error("SECRET_KEY not set in environment variables! This is required for production.")
+        raise ValueError("SECRET_KEY must be set in environment variables for production")
+    secret_key = os.urandom(32).hex()
+    logger.warning("SECRET_KEY not set, using random key. Sessions will be invalidated on restart.")
+
+app.config['SECRET_KEY'] = secret_key
+app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'uploads')  # Directory for storing uploaded files
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size limit
+
+# Configure CORS - restrict to allowed origins in production
+allowed_origins = os.getenv('ALLOWED_ORIGINS', '*')
+if allowed_origins == '*':
+    if os.getenv('FLASK_ENV') == 'production':
+        logger.warning("CORS is set to allow all origins. This is a security risk in production!")
+    cors_origins = ['*']
+else:
+    cors_origins = [origin.strip() for origin in allowed_origins.split(',') if origin.strip()]
+
+CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=True)
+
+# Configure rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # In production, use Redis: "redis://localhost:6379"
+)
 
 # Ensure upload folder exists to prevent errors
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -114,87 +162,23 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    """Home page with introduction"""
-    # Get current user if logged in
-    current_user = None
-    session_token = session.get('session_token')
-    if session_token:
-        current_user = user_manager.verify_session(session_token)
-    
-    return render_template('index.html', current_user=current_user)
+    """Deprecated UI route; React app handles UI"""
+    return jsonify({"message": "UI moved to React frontend. Use API routes under /api/.", "frontend": "http://127.0.0.1:5173"}), 410
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login page"""
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        
-        if not username or not password:
-            flash('Username and password are required', 'danger')
-            return redirect(url_for('login'))
-        
-        result = user_manager.login_user(username, password)
-        
-        if result['success']:
-            session['session_token'] = result['session_token']
-            session['username'] = result['user']['username']
-            flash(f"Welcome back, {result['user']['username']}!", 'success')
-            next_page = request.args.get('next') or url_for('index')
-            return redirect(next_page)
-        else:
-            flash(result['message'], 'danger')
-            return redirect(url_for('login'))
-    
-    # If already logged in, redirect to home
-    session_token = session.get('session_token')
-    if session_token and user_manager.verify_session(session_token):
-        return redirect(url_for('index'))
-    
-    return render_template('login.html')
+    """Deprecated UI route"""
+    return jsonify({"message": "Login UI moved to frontend"}), 410
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration page"""
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        email = request.form.get('email', '').strip()
-        
-        if not username or not password or not email:
-            flash('All fields are required', 'danger')
-            return redirect(url_for('register'))
-        
-        if len(password) < 6:
-            flash('Password must be at least 6 characters long', 'danger')
-            return redirect(url_for('register'))
-        
-        result = user_manager.register_user(username, password, email, role='user')
-        
-        if result['success']:
-            flash('Registration successful! Please login', 'success')
-            return redirect(url_for('login'))
-        else:
-            flash(result['message'], 'danger')
-            return redirect(url_for('register'))
-    
-    # If already logged in, redirect to home
-    session_token = session.get('session_token')
-    if session_token and user_manager.verify_session(session_token):
-        return redirect(url_for('index'))
-    
-    return render_template('register.html')
+    """Deprecated UI route"""
+    return jsonify({"message": "Registration UI moved to frontend"}), 410
 
 @app.route('/logout')
 def logout():
-    """User logout"""
-    session_token = session.get('session_token')
-    if session_token:
-        user_manager.logout_user(session_token)
-        session.pop('session_token', None)
-        session.pop('username', None)
-        flash('You have been logged out successfully', 'info')
-    return redirect(url_for('index'))
+    """Deprecated UI route"""
+    return jsonify({"message": "Logout handled by frontend"}), 410
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -354,238 +338,25 @@ def upload():
                 flash(f'Upload failed: {str(e)}', 'danger')
                 return redirect(url_for('upload'))
     
-    return render_template('upload.html')
+    return jsonify({"message": "Use API route: POST /api/upload"}), 410
 
 @app.route('/files')
 @login_required
 def files():
-    """List all uploaded files"""
-    # Get all file blocks from blockchain
-    file_blocks = blockchain.get_all_file_blocks()
-    
-    # Combine with metadata (from memory or Firestore)
-    files_list = []
-    for block in file_blocks:
-        file_id = block.get('file_id')
-        
-        # Try to get metadata from in-memory cache first
-        if file_id in file_metadata:
-            meta = file_metadata[file_id]
-        else:
-            # Load from Firestore if not in memory
-            meta_firestore = data_manager.retrieve_file_metadata(file_id)
-            if meta_firestore:
-                # Convert Firestore metadata to expected format
-                meta = {
-                    'original_filename': meta_firestore.get('original_name', 'Unknown'),
-                    'owner': meta_firestore.get('owner', 'Unknown'),
-                    'authorized_users': meta_firestore.get('authorized_users', []),
-                    'block_hash': meta_firestore.get('block_hash', ''),
-                    'timestamp': meta_firestore.get('storage_time', time.time()),
-                    'size': block.get('data', {}).get('size', 0),
-                    'encrypted_size': meta_firestore.get('size_encrypted', 0)
-                }
-                # Cache in memory for future use
-                file_metadata[file_id] = meta
-            else:
-                # Skip if metadata not found
-                continue
-        
-        files_list.append({
-            'file_id': file_id,
-            'original_filename': meta['original_filename'],
-            'owner': meta['owner'],
-            'authorized_users': ', '.join(meta['authorized_users']) if meta['authorized_users'] else 'Owner only',
-            'block_hash': meta['block_hash'][:32] + '...' if meta['block_hash'] else 'N/A',
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(meta['timestamp'])),
-            'size': f"{meta['size']:,} bytes",
-            'encrypted_size': f"{meta['encrypted_size']:,} bytes"
-        })
-    
-    return render_template('files.html', files=files_list)
+    """Deprecated UI route - delegate to API"""
+    return api_files()
 
 @app.route('/decrypt/<file_id>', methods=['GET', 'POST'])
 @login_required
 def decrypt(file_id):
-    """Decrypt a file - Implements the file access and retrieval flow"""
-    # Check if file exists (in memory or Firestore)
-    if file_id in file_metadata:
-        meta = file_metadata[file_id]
-    else:
-        # Load from Firestore if not in memory
-        meta_firestore = data_manager.retrieve_file_metadata(file_id)
-        if not meta_firestore:
-            flash('File not found', 'danger')
-            return redirect(url_for('files'))
-        
-        # Convert Firestore metadata to expected format
-        meta = {
-            'original_filename': meta_firestore.get('original_name', 'Unknown'),
-            'owner': meta_firestore.get('owner', 'Unknown'),
-            'authorized_users': meta_firestore.get('authorized_users', []),
-            'wrapped_seeds': {},  # Will be loaded from Firestore when needed
-            'block_hash': meta_firestore.get('block_hash', ''),
-            'timestamp': meta_firestore.get('storage_time', time.time()),
-            'size': meta_firestore.get('size_encrypted', 0),
-            'encrypted_size': meta_firestore.get('size_encrypted', 0)
-        }
-        # Cache in memory for future use
-        file_metadata[file_id] = meta
-    
-    if request.method == 'POST':
-        # Get authenticated user
-        current_user = request.current_user
-        user_name = current_user['username']  # Use authenticated username
-        
-        print(f"\n[FLOW] Starting file access and retrieval process...")
-        print(f"[FLOW] User: {user_name}, File: {file_id}")
-        
-        # STEP 4: File Access and Retrieval
-        print(f"[FLOW-4] Retrieving metadata and ciphertext...")
-        
-        # Retrieve metadata from blockchain
-        block = blockchain.get_block_by_file_id(file_id)
-        if not block:
-            flash('File metadata not found in blockchain', 'danger')
-            return redirect(url_for('files'))
-        
-        print(f"[FLOW-4] Metadata retrieved from blockchain: block_hash={block.get('block_hash', '')[:16]}...")
-        
-        # Retrieve ciphertext from off-chain storage using data manager
-        encrypted_content = data_manager.retrieve_encrypted_file(file_id)
-        if not encrypted_content:
-            flash('Encrypted file not found or corrupted', 'danger')
-            return redirect(url_for('files'))
-        
-        print(f"[FLOW-4] Ciphertext retrieved from off-chain storage: {len(encrypted_content)} bytes")
-        
-        # Verify file integrity
-        if not data_manager.verify_file_integrity(file_id):
-            flash('File integrity check failed', 'danger')
-            return redirect(url_for('files'))
-        
-        print(f"[FLOW-4] File integrity verified")
-        
-        # Check if user is authorized
-        is_authorized = (user_name == meta['owner'] or 
-                        user_name in meta['authorized_users'])
-        
-        if not is_authorized:
-            # STEP 6: Unauthorized User Access
-            print(f"[FLOW-6] Unauthorized access attempt by {user_name} for file {file_id}")
-            print(f"[FLOW-6] User {user_name} is not in authorized list: {meta['authorized_users']}")
-            print(f"[FLOW-6] Owner: {meta['owner']}")
-            
-            # Log unauthorized access attempt
-            unauthorized_log = {
-                "file_id": file_id,
-                "unauthorized_user": user_name,
-                "attempt_time": time.time(),
-                "access_denied": True,
-                "reason": "User not in authorized list"
-            }
-            blockchain.log_access_control(file_id, unauthorized_log)
-            
-            flash('Access Denied: You are not authorized to decrypt this file', 'danger')
-            return redirect(url_for('decrypt', file_id=file_id))
-        
-        # STEP 5: Authorized User Access
-        print(f"[FLOW-5] Authorized user access granted for {user_name}")
-        
-        try:
-            # Get wrapped seed for user (from in-memory metadata or Firestore)
-            wrapped_seed = None
-            if user_name in meta.get('wrapped_seeds', {}):
-                # Get from in-memory metadata
-                wrapped_seed_hex = meta['wrapped_seeds'][user_name]
-                wrapped_seed = bytes.fromhex(wrapped_seed_hex)
-                print(f"[FLOW-5] Retrieved wrapped seed from in-memory metadata for user: {user_name}")
-            else:
-                # Try to retrieve from Firestore via data_manager
-                wrapped_seed = data_manager.retrieve_wrapped_seed(file_id, user_name)
-                if wrapped_seed:
-                    print(f"[FLOW-5] Retrieved wrapped seed from Firestore for user: {user_name}")
-                else:
-                    flash('No encryption key found for your user', 'danger')
-                    return redirect(url_for('decrypt', file_id=file_id))
-            
-            # Generate user key and unwrap seed (Key Derivation & Decryption)
-            user_key = encryption.generate_user_key(user_name, file_id)
-            seed = encryption.unwrap_seed_for_user(wrapped_seed, user_key)
-            
-            print(f"[FLOW-5] Key derivation successful for user {user_name}")
-            print(f"[FLOW-5] Seed unwrapped: {seed.hex()[:16]}...")
-            
-            # Decrypt file using the derived seed
-            decrypted_content = encryption.decrypt_chc(encrypted_content, seed)
-            
-            print(f"[FLOW-5] File successfully decrypted: {len(decrypted_content)} bytes")
-            
-            # Log successful access
-            access_log = {
-                "file_id": file_id,
-                "user": user_name,
-                "access_time": time.time(),
-                "access_granted": True,
-                "decryption_successful": True
-            }
-            blockchain.log_access_control(file_id, access_log)
-            
-            # STEP 7: Security Outcome - Data confidentiality and integrity maintained
-            print(f"[FLOW-7] Security outcome: Data successfully decrypted for authorized user")
-            print(f"[FLOW-7] File access cryptographically verified via blockchain")
-            
-            # Return decrypted file
-            return send_file(
-                io.BytesIO(decrypted_content),
-                as_attachment=True,
-                download_name=meta['original_filename'],
-                mimetype='application/octet-stream'
-            )
-            
-        except Exception as e:
-            print(f"[FLOW-5] Decryption failed: {str(e)}")
-            
-            # Log failed decryption attempt
-            failed_log = {
-                "file_id": file_id,
-                "user": user_name,
-                "attempt_time": time.time(),
-                "decryption_failed": True,
-                "error": str(e)
-            }
-            blockchain.log_access_control(file_id, failed_log)
-            
-            flash(f'Decryption failed: {str(e)}', 'danger')
-            return redirect(url_for('decrypt', file_id=file_id))
-    
-    # GET request - show decrypt form
-    current_user = request.current_user
-    return render_template('decrypt.html', 
-                         file_id=file_id,
-                         filename=meta['original_filename'],
-                         owner=meta['owner'],
-                         authorized_users=meta['authorized_users'],
-                         current_user=current_user)
+    """Deprecated UI route - use POST /api/decrypt/<file_id>"""
+    return jsonify({"message": "Use API route: POST /api/decrypt/<file_id>"}), 410
 
 @app.route('/blockchain')
 @login_required
 def blockchain_view():
-    """View blockchain ledger"""
-    chain = blockchain.get_chain()
-    
-    # Format blocks for display
-    formatted_chain = []
-    for block in chain:
-        formatted_chain.append(blockchain.format_block_for_display(block))
-    
-    # Verify chain integrity
-    is_valid = blockchain.verify_chain_integrity()
-    
-    return render_template('blockchain.html', 
-                         chain=formatted_chain,
-                         chain_length=len(chain),
-                         is_valid=is_valid)
+    """Deprecated UI route - delegate to API"""
+    return api_blockchain()
 
 @app.route('/api/blockchain')
 def api_blockchain():
@@ -593,44 +364,16 @@ def api_blockchain():
     chain = blockchain.get_chain()
     return jsonify(chain)
 
+@app.route('/api/ping')
+def api_ping():
+    """Health check endpoint for frontend to verify backend connectivity"""
+    return jsonify({"status": "ok", "service": "flask", "ts": time.time()})
+
 @app.route('/security/<file_id>')
 @login_required
 def security_audit(file_id):
-    """View security audit trail for a file"""
-    # Check if file exists (in memory or Firestore)
-    if file_id in file_metadata:
-        meta = file_metadata[file_id]
-    else:
-        # Load from Firestore if not in memory
-        meta_firestore = data_manager.retrieve_file_metadata(file_id)
-        if not meta_firestore:
-            flash('File not found', 'danger')
-            return redirect(url_for('files'))
-        
-        # Convert Firestore metadata to expected format
-        meta = {
-            'original_filename': meta_firestore.get('original_name', 'Unknown'),
-            'owner': meta_firestore.get('owner', 'Unknown'),
-            'authorized_users': meta_firestore.get('authorized_users', []),
-            'block_hash': meta_firestore.get('block_hash', ''),
-            'timestamp': meta_firestore.get('storage_time', time.time())
-        }
-        # Cache in memory for future use
-        file_metadata[file_id] = meta
-    
-    # Get security audit trail
-    audit_trail = blockchain.get_security_audit_trail(file_id)
-    
-    # Get security verification
-    security_verification = blockchain.verify_file_security(file_id)
-    
-    return render_template('security_audit.html',
-                         file_id=file_id,
-                         filename=meta['original_filename'],
-                         owner=meta['owner'],
-                         authorized_users=meta['authorized_users'],
-                         audit_trail=audit_trail,
-                         security_verification=security_verification)
+    """Deprecated UI route - delegate to API"""
+    return api_security_audit(file_id)
 
 @app.route('/api/security/<file_id>')
 def api_security_audit(file_id):
@@ -644,28 +387,318 @@ def api_security_audit(file_id):
         "security_verification": security_verification
     })
 
+@app.route('/api/files')
+def api_files():
+    """API endpoint to list files and metadata as JSON"""
+    file_blocks = blockchain.get_all_file_blocks()
+    files_list = []
+    for block in file_blocks:
+        file_id = block.get('file_id')
+        if not file_id or file_id == 'genesis':
+            continue
+        if file_id in file_metadata:
+            meta = file_metadata[file_id]
+        else:
+            meta_firestore = data_manager.retrieve_file_metadata(file_id)
+            if meta_firestore:
+                meta = {
+                    'original_filename': meta_firestore.get('original_name', 'Unknown'),
+                    'owner': meta_firestore.get('owner', 'Unknown'),
+                    'authorized_users': meta_firestore.get('authorized_users', []),
+                    'block_hash': meta_firestore.get('block_hash', ''),
+                    'timestamp': meta_firestore.get('storage_time', time.time()),
+                    'size': block.get('data', {}).get('size', 0),
+                    'encrypted_size': meta_firestore.get('size_encrypted', 0)
+                }
+                file_metadata[file_id] = meta
+            else:
+                continue
+        files_list.append({
+            'file_id': file_id,
+            'original_filename': meta.get('original_filename', 'Unknown'),
+            'owner': meta.get('owner', 'Unknown'),
+            'authorized_users': meta.get('authorized_users', []),
+            'block_hash': meta.get('block_hash', ''),
+            'timestamp': meta.get('timestamp'),
+            'size': meta.get('size', 0),
+            'encrypted_size': meta.get('encrypted_size', 0),
+        })
+    return jsonify(files_list)
+
+@app.route('/api/upload', methods=['POST'])
+def api_upload():
+    """API endpoint for uploading and encrypting a file (multipart/form-data)"""
+    # Get username from Authorization header
+    session_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not session_token:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    user_info = user_manager.verify_session(session_token)
+    if not user_info:
+        return jsonify({'success': False, 'message': 'Invalid or expired session'}), 401
+    
+    owner_name = user_info.get('username')
+    
+    file = request.files.get('file')
+    authorized_users_str = request.form.get('authorized_users', '')
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'message': 'No file provided'}), 400
+    try:
+        original_filename = secure_filename(file.filename)
+        file_id = encryption.generate_file_id(original_filename, owner_name)
+        file_content = file.read()
+        max_size = 16 * 1024 * 1024
+        if len(file_content) > max_size:
+            return jsonify({'success': False, 'message': 'File exceeds 16MB limit'}), 413
+        auth_users = [u.strip() for u in authorized_users_str.split(',') if u.strip()]
+        file_meta = {
+            "original_filename": original_filename,
+            "size": len(file_content),
+            "upload_time": time.time(),
+            "file_hash": hashlib.sha256(file_content).hexdigest()
+        }
+        block_hash, timestamp = blockchain.add_block(
+            file_id, owner_name, auth_users, file_meta
+        )
+        owner_secret = encryption.get_or_create_owner_secret(owner_name)
+        seed = encryption.derive_seed(owner_secret, block_hash, timestamp, file_id)
+        encrypted_content = encryption.encrypt_chc(file_content, seed)
+        data_manager.store_encrypted_file(
+            file_id=file_id,
+            encrypted_data=encrypted_content,
+            original_name=original_filename,
+            block_hash=block_hash,
+            owner=owner_name,
+            authorized_users=auth_users
+        )
+        access_log = {
+            "file_id": file_id,
+            "owner": owner_name,
+            "authorized_users": auth_users,
+            "access_granted_at": timestamp,
+            "encryption_method": "CHC",
+            "block_hash": block_hash
+        }
+        blockchain.log_access_control(file_id, access_log)
+        wrapped_seeds = {}
+        for user in auth_users + [owner_name]:
+            user_key = encryption.generate_user_key(user, file_id)
+            wrapped_seed = encryption.wrap_seed_for_user(seed, user_key)
+            wrapped_seeds[user] = wrapped_seed.hex()
+            data_manager.store_wrapped_seed(file_id, user, wrapped_seed)
+        file_metadata[file_id] = {
+            "original_filename": original_filename,
+            "owner": owner_name,
+            "authorized_users": auth_users,
+            "encrypted_filename": f"{file_id}.enc",
+            "wrapped_seeds": wrapped_seeds,
+            "block_hash": block_hash,
+            "timestamp": timestamp,
+            "size": len(file_content),
+            "encrypted_size": len(encrypted_content),
+            "file_hash": file_meta["file_hash"]
+        }
+        return jsonify({'success': True, 'file_id': file_id, 'block_hash': block_hash, 'authorized_users': auth_users})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/decrypt/<file_id>', methods=['POST'])
+def api_decrypt(file_id):
+    """API endpoint to decrypt and download a file for a given user"""
+    # Get username from Authorization header
+    session_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not session_token:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    user_info = user_manager.verify_session(session_token)
+    if not user_info:
+        return jsonify({'success': False, 'message': 'Invalid or expired session'}), 401
+    
+    user_name = user_info.get('username')
+    if file_id in file_metadata:
+        meta = file_metadata[file_id]
+    else:
+        meta_firestore = data_manager.retrieve_file_metadata(file_id)
+        if not meta_firestore:
+            return jsonify({'success': False, 'message': 'File not found'}), 404
+        meta = {
+            'original_filename': meta_firestore.get('original_name', 'Unknown'),
+            'owner': meta_firestore.get('owner', 'Unknown'),
+            'authorized_users': meta_firestore.get('authorized_users', []),
+            'wrapped_seeds': {},
+            'block_hash': meta_firestore.get('block_hash', ''),
+            'timestamp': meta_firestore.get('storage_time', time.time()),
+            'size': meta_firestore.get('size_encrypted', 0),
+            'encrypted_size': meta_firestore.get('size_encrypted', 0)
+        }
+        file_metadata[file_id] = meta
+    block = blockchain.get_block_by_file_id(file_id)
+    if not block:
+        return jsonify({'success': False, 'message': 'File metadata not found in blockchain'}), 404
+    encrypted_content = data_manager.retrieve_encrypted_file(file_id)
+    if not encrypted_content:
+        return jsonify({'success': False, 'message': 'Encrypted file not found'}), 404
+    is_authorized = (user_name == meta['owner'] or user_name in meta['authorized_users'])
+    if not is_authorized:
+        unauthorized_log = {
+            "file_id": file_id,
+            "unauthorized_user": user_name,
+            "attempt_time": time.time(),
+            "access_denied": True,
+            "reason": "User not in authorized list"
+        }
+        blockchain.log_access_control(file_id, unauthorized_log)
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+    wrapped_seed = data_manager.retrieve_wrapped_seed(file_id, user_name)
+    if not wrapped_seed and 'wrapped_seeds' in meta and user_name in meta['wrapped_seeds']:
+        wrapped_seed = bytes.fromhex(meta['wrapped_seeds'][user_name])
+    if not wrapped_seed:
+        return jsonify({'success': False, 'message': 'No key found for user'}), 404
+    try:
+        user_key = encryption.generate_user_key(user_name, file_id)
+        seed = encryption.unwrap_seed_for_user(wrapped_seed, user_key)
+        decrypted_content = encryption.decrypt_chc(encrypted_content, seed)
+        access_log = {
+            "file_id": file_id,
+            "user": user_name,
+            "access_time": time.time(),
+            "access_granted": True,
+            "decryption_successful": True
+        }
+        blockchain.log_access_control(file_id, access_log)
+        return send_file(
+            io.BytesIO(decrypted_content),
+            as_attachment=True,
+            download_name=meta['original_filename'],
+            mimetype='application/octet-stream'
+        )
+    except Exception as e:
+        failed_log = {
+            "file_id": file_id,
+            "user": user_name,
+            "attempt_time": time.time(),
+            "decryption_failed": True,
+            "error": str(e)
+        }
+        blockchain.log_access_control(file_id, failed_log)
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/login', methods=['POST'])
+@limiter.limit("5 per minute")  # Rate limit: 5 login attempts per minute
+def api_login():
+    """API endpoint for user login"""
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Username and password are required'}), 400
+    
+    result = user_manager.login_user(username, password)
+    
+    if result['success']:
+        return jsonify({
+            'success': True,
+            'message': result['message'],
+            'session_token': result['session_token'],
+            'user': result['user']
+        })
+    else:
+        return jsonify({'success': False, 'message': result['message']}), 401
+
+@app.route('/api/register', methods=['POST'])
+@limiter.limit("3 per hour")  # Rate limit: 3 registrations per hour
+def api_register():
+    """API endpoint for user registration"""
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    email = data.get('email', '').strip()
+    
+    if not username or not password or not email:
+        return jsonify({'success': False, 'message': 'All fields are required'}), 400
+    
+    if len(password) < 6:
+        return jsonify({'success': False, 'message': 'Password must be at least 6 characters long'}), 400
+    
+    result = user_manager.register_user(username, password, email, role='user')
+    
+    if result['success']:
+        return jsonify({
+            'success': True,
+            'message': result['message'],
+            'user': {
+                'username': result['user']['username'],
+                'email': result['user']['email'],
+                'role': result['user']['role']
+            }
+        })
+    else:
+        return jsonify({'success': False, 'message': result['message']}), 400
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    """API endpoint for user logout"""
+    data = request.get_json() or {}
+    session_token = data.get('session_token', '')
+    
+    if session_token:
+        user_manager.logout_user(session_token)
+    
+    return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/api/auth/check', methods=['GET'])
+def api_auth_check():
+    """API endpoint to check if user is authenticated"""
+    session_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not session_token:
+        return jsonify({'authenticated': False}), 401
+    
+    user_info = user_manager.verify_session(session_token)
+    if user_info:
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'username': user_info.get('username'),
+                'role': user_info.get('role')
+            }
+        })
+    else:
+        return jsonify({'authenticated': False}), 401
+
 # Note: Authentication and profile management are future scope
 # Note: Admin panel removed - simplified UI
 
 @app.errorhandler(404)
 def not_found(e):
-    """404 error handler"""
-    return render_template('index.html'), 404
+    """404 error handler (JSON)"""
+    return jsonify({"error": "Not found"}), 404
 
 @app.errorhandler(413)
 def too_large(e):
-    """File too large error handler"""
-    flash('File is too large. Maximum size is 16MB', 'danger')
-    return redirect(url_for('upload'))
+    """File too large error handler (JSON)"""
+    return jsonify({'success': False, 'message': 'File is too large. Maximum size is 16MB'}), 413
 
 if __name__ == '__main__':
-    print("\n" + "="*60)
-    print("CHC - Contextual Encryption for Secure Cloud Storage")
-    print("="*60)
-    print("\nInitializing blockchain...")
+    logger.info("="*60)
+    logger.info("CHC Secure File Management System")
+    logger.info("="*60)
+    logger.info("Initializing blockchain...")
     blockchain.init_chain()
-    print("\nStarting Flask server...")
-    print("\n🚀 Application running at: http://127.0.0.1:5000")
-    print("="*60 + "\n")
+    logger.info("Blockchain initialized")
     
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    # Get configuration from environment variables
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    host = os.getenv('HOST', '127.0.0.1')
+    port = int(os.getenv('PORT', 5000))
+    flask_env = os.getenv('FLASK_ENV', 'development')
+    
+    # Warn if debug mode is enabled in production
+    if debug_mode and flask_env == 'production':
+        logger.error("WARNING: Debug mode is enabled in production! This is a security risk!")
+    
+    logger.info(f"Starting Flask server in {flask_env} mode...")
+    logger.info(f"🚀 API server running at: http://{host}:{port}")
+    logger.info("="*60)
+    
+    app.run(debug=debug_mode, host=host, port=port)

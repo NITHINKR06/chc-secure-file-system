@@ -1,18 +1,38 @@
 import { useState, FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { BiUserPlus, BiUser, BiEnvelope, BiLock, BiShield, BiCheckCircle } from 'react-icons/bi'
+import { Link, useNavigate } from 'react-router-dom'
+import { BiUserPlus, BiUser, BiEnvelope, BiLock, BiShield, BiCheckCircle, BiErrorAlt } from 'react-icons/bi'
+import { apiPost } from '../utils/api'
 
 export default function Register() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // TODO: Implement registration logic
-    setTimeout(() => setLoading(false), 2000)
+    setError('')
+    setSuccess(false)
+    
+    try {
+      const result = await apiPost('/api/register', { username, email, password })
+      if (result.success) {
+        setSuccess(true)
+        setTimeout(() => {
+          navigate('/login')
+        }, 2000)
+      } else {
+        setError(result.message || 'Registration failed')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -22,8 +42,11 @@ export default function Register() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
             <BiUserPlus className="text-blue-600" />
-            <span>Create New Account</span>
+            <span>Create File Management Account</span>
           </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            Register to start securely managing your files with CHC encryption
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -40,12 +63,13 @@ export default function Register() {
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
               placeholder="Choose a username"
+              autoComplete="username"
               required
               autoFocus
             />
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 flex items-center space-x-1">
               <BiUser />
-              <span>This will be used to identify you as the file owner</span>
+              <span>This username will identify you as the file owner in the secure file management system</span>
             </p>
           </div>
 
@@ -62,6 +86,7 @@ export default function Register() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
               placeholder="Enter your email"
+              autoComplete="email"
               required
             />
           </div>
@@ -79,6 +104,7 @@ export default function Register() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
               placeholder="Choose a password (min 6 characters)"
+              autoComplete="new-password"
               required
               minLength={6}
             />
@@ -88,10 +114,26 @@ export default function Register() {
             </p>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center space-x-2 text-red-700 dark:text-red-300">
+              <BiErrorAlt />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center space-x-2 text-green-700 dark:text-green-300">
+              <BiCheckCircle />
+              <span>Registration successful! Redirecting to login...</span>
+            </div>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {loading ? (
@@ -136,7 +178,7 @@ export default function Register() {
           </li>
           <li className="flex items-start space-x-2">
             <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-            <span><strong>Access Control:</strong> Only authorized users can decrypt files</span>
+            <span><strong>File Access Control:</strong> Only authorized users can access and decrypt your files</span>
           </li>
         </ul>
       </div>

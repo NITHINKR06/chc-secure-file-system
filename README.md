@@ -2,6 +2,8 @@
 
 A secure file management system that implements **blockchain-linked contextual encryption** for maximum security and controlled access. This system demonstrates advanced cryptographic techniques including Contextual Hash Chain (CHC) encryption, blockchain integration, and per-user access control.
 
+> Frontend update: The legacy Flask templates have been removed. The new frontend lives in `CHCAPP/` (Vite + React + TypeScript + Tailwind). The Flask app now serves APIs only.
+
 ## 🎯 What This Project Is For
 
 This project implements a **secure cloud storage system** that combines:
@@ -75,18 +77,26 @@ The system implements a **7-step secure file management flow**:
    cd Project
    ```
 
-2. **Install dependencies**
+2. **Install backend dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+3. **Run the backend (Flask API)**
    ```bash
    python app.py
    ```
 
-4. **Access the web interface**
-   - Open browser: `http://127.0.0.1:5000`
+4. **Run the frontend (CHCAPP)**
+   ```bash
+   cd CHCAPP
+   npm install   # or: yarn
+   npm run dev   # or: yarn dev
+   ```
+
+5. **Access the app**
+- Frontend (Vite): `http://127.0.0.1:5173`
+- Backend API (Flask): `http://127.0.0.1:5000`
 
 ## 📋 How to Use
 
@@ -158,7 +168,7 @@ Project/
 ├── encryption.py          # CHC encryption module
 ├── auth.py               # User authentication
 ├── data_manager.py       # Secure data storage
-├── templates/            # HTML templates
+├── CHCAPP/               # New Vite + React frontend (replaces legacy templates)
 ├── static/              # CSS and static files
 ├── uploads/             # Encrypted file storage
 ├── secure_storage/      # Key vault and metadata

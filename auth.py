@@ -25,6 +25,10 @@ import os  # For file system operations
 import time  # For timestamp generation and session management
 from typing import Dict, Optional, List  # Type hints for better code documentation
 import secrets  # For cryptographically secure random number generation
+from dotenv import load_dotenv  # For environment variables
+
+# Load environment variables
+load_dotenv()
 
 # Configuration files for user data storage
 USER_DB_FILE = "users.json"  # File storing user account information
@@ -224,14 +228,23 @@ def init_default_admin():
     """Create default admin user on first run"""
     manager = UserManager()
     if 'admin' not in manager.users:
+        # Get admin credentials from environment variables or use defaults
+        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
+        admin_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@chc.local')
+        
         result = manager.register_user(
-            username='admin',
-            password='admin123',
-            email='admin@chc.local',
+            username=admin_username,
+            password=admin_password,
+            email=admin_email,
             role='admin'
         )
-        print("[Auth] Default admin user created - Username: admin, Password: admin123")
-        print("[Auth] ⚠️  Please change the admin password after first login!")
+        print(f"[Auth] Default admin user created - Username: {admin_username}")
+        if admin_password == 'admin123':
+            print("[Auth] ⚠️  WARNING: Using default admin password! Please change it after first login!")
+            print("[Auth] ⚠️  Set ADMIN_PASSWORD environment variable to use a custom password.")
+        else:
+            print("[Auth] Admin password set from environment variable.")
 
 # Initialize on module import
 init_default_admin()

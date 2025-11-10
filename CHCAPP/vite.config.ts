@@ -5,10 +5,13 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // Serve assets from backend static path when built
-  base: '/static/chcapp/',
-  build: {
-    outDir: '../static/chcapp',
-    emptyOutDir: true,
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 })

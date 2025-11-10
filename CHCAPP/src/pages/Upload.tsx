@@ -1,8 +1,10 @@
 import { useState, FormEvent, DragEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BiCloudUpload, BiFile, BiGroup, BiLock, BiChevronLeft, BiInfoCircle, BiCheckCircle } from 'react-icons/bi'
+import { getCurrentUser, getAuthToken } from '../utils/api'
 
 export default function Upload() {
+  const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [authorizedUsers, setAuthorizedUsers] = useState('')
   const [loading, setLoading] = useState(false)
@@ -47,9 +49,45 @@ export default function Upload() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!file) return
+    
+    const user = getCurrentUser()
+    if (!user) {
+      alert('Please login first')
+      navigate('/login')
+      return
+    }
+    
     setLoading(true)
-    // TODO: Implement upload logic
-    setTimeout(() => setLoading(false), 3000)
+    try {
+      const token = getAuthToken()
+      const form = new FormData()
+      form.append('file', file)
+      form.append('authorized_users', authorizedUsers)
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: form,
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        const msg = await res.text().catch(() => 'Upload failed')
+        alert(msg)
+      } else {
+        const data = await res.json()
+        if (data?.success) {
+          alert(`Uploaded! File ID: ${data.file_id}`)
+          setFile(null)
+          setAuthorizedUsers('')
+          navigate('/files')
+        } else {
+          alert(data?.message || 'Upload failed')
+        }
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Upload error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -59,8 +97,11 @@ export default function Upload() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
             <BiCloudUpload className="text-blue-600" />
-            <span>Upload & Encrypt File</span>
+            <span>Upload & Secure File</span>
           </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            Upload your file to the secure file management system with CHC encryption and blockchain protection
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -181,19 +222,19 @@ export default function Upload() {
         <ul className="space-y-2 text-gray-700 dark:text-gray-300">
           <li className="flex items-start space-x-2">
             <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-            <span>Your file will be encrypted using the CHC algorithm</span>
+            <span>Your file will be encrypted using the CHC (Contextual Hash Chain) algorithm</span>
           </li>
           <li className="flex items-start space-x-2">
             <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-            <span>A unique seed will be derived from blockchain context</span>
+            <span>A unique encryption seed will be derived from blockchain context</span>
           </li>
           <li className="flex items-start space-x-2">
             <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-            <span>Encrypted file will be stored securely off-chain</span>
+            <span>Encrypted file will be stored securely in the file management system</span>
           </li>
           <li className="flex items-start space-x-2">
             <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-            <span>Access control will be logged to the blockchain</span>
+            <span>File access control and metadata will be logged to the blockchain</span>
           </li>
         </ul>
       </div>

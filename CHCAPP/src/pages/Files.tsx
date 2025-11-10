@@ -1,40 +1,69 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { BiLock, BiPlusCircle, BiFile, BiKey, BiUser, BiGroup, BiHdd, BiCalendar, BiLockOpen, BiShield, BiNetworkChart } from 'react-icons/bi'
-
-// Mock data - replace with actual API calls
-const mockFiles = [
-  {
-    file_id: 'file123',
-    original_filename: 'document.pdf',
-    owner: 'admin',
-    authorized_users: 'John, Jane',
-    size: '2.5 MB',
-    encrypted_size: '2.5 MB',
-    timestamp: '2024-01-15 10:30:00'
-  },
-  {
-    file_id: 'file456',
-    original_filename: 'image.jpg',
-    owner: 'user1',
-    authorized_users: 'Owner only',
-    size: '1.2 MB',
-    encrypted_size: '1.2 MB',
-    timestamp: '2024-01-14 15:45:00'
-  }
-]
+import { apiGet, getCurrentUser } from '../utils/api'
 
 export default function Files() {
-  const [files] = useState(mockFiles)
+  const [files, setFiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const user = getCurrentUser()
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    
+    let isMounted = true
+    const run = async () => {
+      try {
+        setLoading(true)
+        const data = await apiGet('/api/files')
+        if (isMounted) {
+          // Filter files: show only files owned by user or where user is authorized
+          const userFiles = (Array.isArray(data) ? data : []).filter((f: any) => {
+            const owner = f.owner || ''
+            const authorized = Array.isArray(f.authorized_users) ? f.authorized_users : []
+            return owner === user.username || authorized.includes(user.username)
+          })
+          
+          const formatted = userFiles.map((f: any) => ({
+            ...f,
+            authorized_users: Array.isArray(f.authorized_users) && f.authorized_users.length > 0
+              ? f.authorized_users.join(', ')
+              : 'Owner only',
+            size: typeof f.size === 'number' ? `${(f.size / (1024 * 1024)).toFixed(2)} MB` : f.size,
+            encrypted_size: typeof f.encrypted_size === 'number' ? `${(f.encrypted_size / (1024 * 1024)).toFixed(2)} MB` : f.encrypted_size,
+            timestamp: f.timestamp ? new Date(f.timestamp * 1000).toLocaleString() : '',
+          }))
+          setFiles(formatted)
+          setError(null)
+        }
+      } catch (e: any) {
+        if (isMounted) setError(e?.message || 'Failed to load files')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+    run()
+    return () => { isMounted = false }
+  }, [])
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
-          <BiLock className="text-blue-600" />
-          <span>Encrypted Files</span>
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
+            <BiLock className="text-blue-600" />
+            <span>My Secure Files</span>
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Manage your encrypted files with blockchain-secured access control
+          </p>
+        </div>
         <Link
           to="/upload"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -45,7 +74,15 @@ export default function Files() {
       </div>
 
       {/* Files Table */}
-      {files.length > 0 ? (
+      {loading ? (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-12 border border-slate-200 dark:border-slate-700 text-center">
+          <p className="text-gray-500 dark:text-gray-400">Loading files...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-12 border border-red-200 dark:border-red-800 text-center">
+          <p className="text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      ) : files.length > 0 ? (
         <>
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="overflow-x-auto">
@@ -115,7 +152,7 @@ export default function Files() {
                         ) : (
                           <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded text-sm">
                             <BiGroup className="inline mr-1" />
-                            {file.authorized_users}
+                          {file.authorized_users}
                           </span>
                         )}
                       </td>
@@ -172,7 +209,7 @@ export default function Files() {
                 <BiShield className="text-3xl text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-3xl font-bold text-green-600 mb-1">{files.length}</h3>
-              <p className="text-gray-600 dark:text-gray-400">Encrypted Files</p>
+              <p className="text-gray-600 dark:text-gray-400">Secure Files</p>
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-200 dark:border-slate-700 text-center">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -187,9 +224,9 @@ export default function Files() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-12 border border-slate-200 dark:border-slate-700 text-center">
           <BiFile className="text-6xl mx-auto mb-4 text-gray-400" />
           <h4 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-3">
-            No Files Uploaded Yet
+            No Secure Files Yet
           </h4>
-          <p className="text-gray-500 dark:text-gray-500 mb-6">Upload your first file to see it here</p>
+          <p className="text-gray-500 dark:text-gray-500 mb-6">Upload your first file to the secure file management system</p>
           <Link
             to="/upload"
             className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

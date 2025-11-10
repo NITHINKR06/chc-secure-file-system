@@ -1,39 +1,40 @@
 import { useState, useEffect } from 'react'
 import { BiNetworkChart, BiHash, BiCalendar, BiFile, BiUser, BiGroup, BiLink, BiChevronLeft, BiShield, BiCode, BiDownload, BiCheckCircle, BiXCircle } from 'react-icons/bi'
-
-// Mock blockchain data
-const mockChain = [
-  {
-    index: 0,
-    timestamp: '2024-01-01 00:00:00',
-    file_id: 'genesis',
-    owner: null,
-    authorized_users: null,
-    block_hash: '0'.repeat(64),
-    prev_hash: '0'.repeat(64)
-  },
-  {
-    index: 1,
-    timestamp: '2024-01-15 10:30:00',
-    file_id: 'file123',
-    owner: 'admin',
-    authorized_users: 'John, Jane',
-    block_hash: 'abc123def456ghi789jkl012mno345pqr678stu901vwx234yz5678901234567890',
-    prev_hash: '0'.repeat(64)
-  }
-]
+import { apiGet } from '../utils/api'
 
 export default function Blockchain() {
-  const [chain] = useState(mockChain)
+  const [chain, setChain] = useState<any[]>([])
   const [showRawData, setShowRawData] = useState(false)
   const [jsonData, setJsonData] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setJsonData(JSON.stringify(chain, null, 2))
   }, [chain])
 
+  useEffect(() => {
+    let isMounted = true
+    const run = async () => {
+      try {
+        setLoading(true)
+        const data = await apiGet('/api/blockchain')
+        if (isMounted) {
+          setChain(Array.isArray(data) ? data : [])
+          setError(null)
+        }
+      } catch (e: any) {
+        if (isMounted) setError(e?.message || 'Failed to load blockchain')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+    run()
+    return () => { isMounted = false }
+  }, [])
+
   const chainLength = chain.length
-  const isValid = true // Mock validation
+  const isValid = true // UI indicator only
 
   const copyJSON = () => {
     navigator.clipboard.writeText(jsonData)
@@ -42,13 +43,25 @@ export default function Blockchain() {
 
   return (
     <div className="space-y-6">
+      {loading && (
+        <div className="text-center text-gray-500 dark:text-gray-400">Loading blockchain...</div>
+      )}
+      {error && (
+        <div className="text-center text-red-600 dark:text-red-400">{error}</div>
+      )}
+
       {/* Header Card */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-700">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
-            <BiNetworkChart className="text-blue-600" />
-            <span>Blockchain Ledger</span>
-          </h2>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center space-x-2">
+              <BiNetworkChart className="text-blue-600" />
+              <span>File Management Blockchain Ledger</span>
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Immutable record of all file operations and access control
+            </p>
+          </div>
           <div className="flex space-x-2">
             <span className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm flex items-center space-x-1">
               <BiLink />
@@ -70,7 +83,7 @@ export default function Blockchain() {
       </div>
 
       {/* Blockchain Table */}
-      {chain.length > 0 ? (
+      {!loading && chain.length > 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -172,7 +185,7 @@ export default function Blockchain() {
           <h5 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
             Blockchain Not Initialized
           </h5>
-          <p className="text-gray-500">The blockchain will be created when you upload your first file</p>
+          <p className="text-gray-500">The file management blockchain will be created when you upload your first secure file</p>
         </div>
       )}
 
@@ -229,11 +242,11 @@ export default function Blockchain() {
             </li>
             <li className="flex items-start space-x-2">
               <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-              <span><strong>Traceability:</strong> Complete audit trail of all uploads</span>
+              <span><strong>File Traceability:</strong> Complete audit trail of all file uploads and access operations</span>
             </li>
             <li className="flex items-start space-x-2">
               <BiCheckCircle className="text-green-600 mt-1 flex-shrink-0" />
-              <span><strong>Context:</strong> Provides unique context for encryption</span>
+              <span><strong>Encryption Context:</strong> Provides unique blockchain context for file encryption seeds</span>
             </li>
           </ul>
         </div>
