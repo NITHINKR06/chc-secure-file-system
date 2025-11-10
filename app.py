@@ -388,42 +388,80 @@ def api_security_audit(file_id):
     })
 
 @app.route('/api/files')
+@limiter.exempt  # Exempt from rate limiting for file listing
 def api_files():
     """API endpoint to list files and metadata as JSON"""
-    file_blocks = blockchain.get_all_file_blocks()
-    files_list = []
-    for block in file_blocks:
-        file_id = block.get('file_id')
-        if not file_id or file_id == 'genesis':
-            continue
-        if file_id in file_metadata:
-            meta = file_metadata[file_id]
-        else:
-            meta_firestore = data_manager.retrieve_file_metadata(file_id)
-            if meta_firestore:
-                meta = {
-                    'original_filename': meta_firestore.get('original_name', 'Unknown'),
-                    'owner': meta_firestore.get('owner', 'Unknown'),
-                    'authorized_users': meta_firestore.get('authorized_users', []),
-                    'block_hash': meta_firestore.get('block_hash', ''),
-                    'timestamp': meta_firestore.get('storage_time', time.time()),
-                    'size': block.get('data', {}).get('size', 0),
-                    'encrypted_size': meta_firestore.get('size_encrypted', 0)
-                }
-                file_metadata[file_id] = meta
-            else:
+    try:
+        file_blocks = blockchain.get_all_file_blocks()
+        files_list = []
+        
+        for block in file_blocks:
+            try:
+                file_id = block.get('file_id')
+                if not file_id or file_id == 'genesis':
+                    continue
+                
+                if file_id in file_metadata:
+                    meta = file_metadata[file_id]
+                else:
+                    try:
+                        meta_firestore = data_manager.retrieve_file_metadata(file_id)
+                        if meta_firestore:
+                            meta = {
+                                'original_filename': meta_firestore.get('original_name', 'Unknown'),
+                                'owner': meta_firestore.get('owner', 'Unknown'),
+                                'authorized_users': meta_firestore.get('authorized_users', []),
+                                'block_hash': meta_firestore.get('block_hash', ''),
+                                'timestamp': meta_firestore.get('storage_time', time.time()),
+                                'size': block.get('data', {}).get('size', 0),
+                                'encrypted_size': meta_firestore.get('size_encrypted', 0)
+                            }
+                            file_metadata[file_id] = meta
+                        else:
+                            # If metadata not found, use block data as fallback
+                            block_data = block.get('data', {})
+                            meta = {
+                                'original_filename': block_data.get('original_filename', 'Unknown'),
+                                'owner': block.get('owner', 'Unknown'),
+                                'authorized_users': block.get('authorized_users', []),
+                                'block_hash': block.get('block_hash', ''),
+                                'timestamp': block.get('timestamp', time.time()),
+                                'size': block_data.get('size', 0),
+                                'encrypted_size': 0
+                            }
+                            file_metadata[file_id] = meta
+                    except Exception as e:
+                        logger.error(f"Error retrieving metadata for file {file_id}: {str(e)}")
+                        # Use block data as fallback
+                        block_data = block.get('data', {})
+                        meta = {
+                            'original_filename': block_data.get('original_filename', 'Unknown'),
+                            'owner': block.get('owner', 'Unknown'),
+                            'authorized_users': block.get('authorized_users', []),
+                            'block_hash': block.get('block_hash', ''),
+                            'timestamp': block.get('timestamp', time.time()),
+                            'size': block_data.get('size', 0),
+                            'encrypted_size': 0
+                        }
+                
+                files_list.append({
+                    'file_id': file_id,
+                    'original_filename': meta.get('original_filename', 'Unknown'),
+                    'owner': meta.get('owner', 'Unknown'),
+                    'authorized_users': meta.get('authorized_users', []),
+                    'block_hash': meta.get('block_hash', ''),
+                    'timestamp': meta.get('timestamp'),
+                    'size': meta.get('size', 0),
+                    'encrypted_size': meta.get('encrypted_size', 0),
+                })
+            except Exception as e:
+                logger.error(f"Error processing block: {str(e)}")
                 continue
-        files_list.append({
-            'file_id': file_id,
-            'original_filename': meta.get('original_filename', 'Unknown'),
-            'owner': meta.get('owner', 'Unknown'),
-            'authorized_users': meta.get('authorized_users', []),
-            'block_hash': meta.get('block_hash', ''),
-            'timestamp': meta.get('timestamp'),
-            'size': meta.get('size', 0),
-            'encrypted_size': meta.get('encrypted_size', 0),
-        })
-    return jsonify(files_list)
+        
+        return jsonify(files_list)
+    except Exception as e:
+        logger.error(f"Error in /api/files endpoint: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': 'Failed to retrieve files', 'message': str(e)}), 500
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
