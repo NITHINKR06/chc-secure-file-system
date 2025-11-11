@@ -187,6 +187,7 @@ This process handles secure file retrieval, authorization, and decryption:
 ### Prerequisites
 - Python 3.8+
 - Node.js 16+ (for frontend)
+- One-time frontend install: run `npm install` inside `CHCAPP/`
 - Firebase account (for cloud storage)
 - Required Python packages (see `requirements.txt`)
 
@@ -208,13 +209,27 @@ This process handles secure file retrieval, authorization, and decryption:
    - Add your Firebase credentials and configuration
    - See `CREATE_ENV_FILE.md` for details
 
-4. **Run the backend (Flask API)**
+4. **Run both backend and frontend together (recommended for development)**
+   ```bash
+   # from the project root
+   python dev_runner.py
+   ```
+   - On Windows PowerShell: `python .\dev_runner.py`
+   - This starts:
+     - Flask API at `http://127.0.0.1:5000`
+     - Vite frontend at `http://127.0.0.1:5173`
+   - Press Ctrl+C once to stop both processes gracefully.
+   - Note: The script assumes you have already run `npm install` once inside `CHCAPP/`.
+
+   If you prefer to run them separately:
+
+   4.a **Run the backend (Flask API) only**
    ```bash
    python app.py
    ```
    Backend will run on `http://127.0.0.1:5000`
 
-5. **Run the frontend (CHCAPP)**
+5. **Run the frontend (CHCAPP) only**
    ```bash
    cd CHCAPP
    npm install   # or: yarn install
@@ -317,6 +332,7 @@ for each block i:
 ```
 Project/
 ├── app.py                 # Main Flask application (API server)
+├── dev_runner.py          # Helper to run backend and frontend together
 ├── blockchain.py          # Blockchain implementation
 ├── encryption.py          # CHC encryption module
 ├── auth.py               # User authentication
