@@ -378,6 +378,12 @@ def security_audit(file_id):
 @app.route('/api/security/<file_id>')
 def api_security_audit(file_id):
     """API endpoint to get security audit data as JSON"""
+    # Ensure chain integrity before verification
+    # This auto-repairs any issues and ensures correct verification status
+    if not blockchain.verify_chain_integrity():
+        print(f"[API] Chain integrity invalid, auto-repairing before security audit...")
+        blockchain.repair_chain_integrity()
+    
     audit_trail = blockchain.get_security_audit_trail(file_id)
     security_verification = blockchain.verify_file_security(file_id)
     
