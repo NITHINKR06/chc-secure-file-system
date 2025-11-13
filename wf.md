@@ -1344,4 +1344,26 @@ User → Frontend → Backend → Get Blockchain Metadata
                          Get Encrypted File (Firestore)
                               ↓
                          Check Authorization
-           
+                              ↓
+                         Retrieve Wrapped Seed (key_vault)
+                              ↓
+                         Unwrap Seed (master key + user key)
+                              ↓
+                         Decrypt File (CHC)
+                              ↓
+                         Return Plaintext to User
+                              ↓
+                         Log Access Outcome to Blockchain
+```
+
+---
+
+## ✅ Final Notes
+
+- **End-to-end Security**: Every file operation is authenticated, encrypted, and auditable across blockchain and Firestore layers.
+- **Context-Derived Keys**: Encryption seeds depend on immutable blockchain data, preventing replay and tampering attacks.
+- **Granular Access Control**: Wrapped seeds in `key_vault` enforce per-user permissions without exposing raw keys.
+- **Operational Visibility**: Blockchain logs provide a complete history of uploads, decryptions, and attempted breaches.
+- **Scalability Considerations**: Firestore’s 1 MB document limit favors small to medium files; plan for Cloud Storage integration when larger payloads dominate.
+
+This completes the comprehensive README for the CHC Secure File Management System. Update the document whenever the data flow, storage schema, or cryptographic primitives change to keep operational guidance accurate.
