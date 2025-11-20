@@ -131,3 +131,6 @@ celerybeat.pid
 dmypy.json
 
 test/
+
+backpage.pdf
+*.pdf
