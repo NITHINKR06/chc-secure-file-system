@@ -403,22 +403,33 @@ Project/
 
 ## 🧪 Testing
 
-The project includes comprehensive testing:
+> ⚠️ **Automated tests are currently unavailable.**  
+> The former `test/` directory (referenced in earlier documentation) has been removed during recent refactors, so the commands shown in older notes will fail.
+
+Until the automated suite is rebuilt, you can verify the core workflow manually:
 
 ```bash
-# Run test suite
-python test/test_chc.py
+# 1. Start the backend API (from project root)
+python app.py
 
-# Run demo scenarios
-python test/demo_secure_flow.py
+# 2. In a second terminal, run the frontend
+cd CHCAPP
+npm install   # first run only
+npm run dev
+
+# 3. Use the UI to:
+#    a) Register/login
+#    b) Upload a file (with authorized users)
+#    c) Decrypt as an authorized user
 ```
 
-**Test Results:**
-- ✅ 14 tests passing (100% success rate)
-- ✅ Cryptographic primitives verified
-- ✅ CHC encryption/decryption correctness
-- ✅ Access control enforcement
-- ✅ Security properties validated
+Manual verification checklist:
+- ✅ Upload succeeds and shows a new block in the blockchain view
+- ✅ Authorized users can decrypt and download the plaintext
+- ✅ Unauthorized users receive “Access denied” and the attempt is logged
+- ✅ `/api/security/<file_id>` reports a healthy audit trail
+
+If you plan to reintroduce automated tests, recreate the `test/` directory and port the previous CHC flow tests or write fresh pytest suites that hit the REST endpoints.
 
 ---
 
