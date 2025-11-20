@@ -1,8 +1,9 @@
-import { ReactNode, useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { 
   BiShield, BiHome, BiCloudUpload, BiFile, BiNetworkChart, 
-  BiLogIn, BiUserPlus, BiUser, BiLogOut 
+  BiLogIn, BiUserPlus, BiUser, BiLogOut, BiMoon, BiSun 
 } from 'react-icons/bi'
 
 interface LayoutProps {
@@ -18,8 +19,26 @@ export default function Layout({ children, currentUser }: LayoutProps) {
   const location = useLocation()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light'
+    const stored = window.localStorage.getItem('chc_theme_preference')
+    return stored === 'dark' ? 'dark' : 'light'
+  })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (theme === 'dark') {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+    window.localStorage.setItem('chc_theme_preference', theme)
+  }, [theme])
 
   const isActive = (path: string) => location.pathname === path
+  const canToggleTheme = Boolean(currentUser && currentUser.role?.toLowerCase() !== 'admin')
+  const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -138,6 +157,16 @@ export default function Layout({ children, currentUser }: LayoutProps) {
                   </Link>
                 </>
               )}
+              {canToggleTheme && (
+                <button
+                  onClick={toggleTheme}
+                  className="ml-2 px-4 py-2 rounded-lg transition-colors flex items-center space-x-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
+                  aria-label="Toggle theme"
+                >
+                  {theme === 'light' ? <BiMoon /> : <BiSun />}
+                  <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -167,6 +196,27 @@ export default function Layout({ children, currentUser }: LayoutProps) {
                   <BiHome className="inline mr-2" />
                   Home
                 </Link>
+                {canToggleTheme && (
+                  <button
+                    onClick={() => {
+                      toggleTheme()
+                      setShowMobileMenu(false)
+                    }}
+                    className="px-4 py-2 rounded-lg transition-colors text-gray-700 dark:text-gray-300 text-left"
+                  >
+                    {theme === 'light' ? (
+                      <>
+                        <BiMoon className="inline mr-2" />
+                        Dark Mode
+                      </>
+                    ) : (
+                      <>
+                        <BiSun className="inline mr-2" />
+                        Light Mode
+                      </>
+                    )}
+                  </button>
+                )}
                 {currentUser ? (
                   <>
                     <Link
