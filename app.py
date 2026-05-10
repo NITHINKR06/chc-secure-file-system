@@ -293,18 +293,22 @@ def upload():
                 # Create wrapped seeds for authorized users
                 wrapped_seeds = {}
                 for user in auth_users:
-                    user_key = encryption.generate_user_key(user, file_id)
+                    # FIX: pass user's password hash so key is not guessable
+                    _ph = user_manager.get_user_password_hash(user)
+                    if not _ph:
+                        print(f"[FLOW-3] WARNING: user '{user}' not found, skipping seed wrap")
+                        continue
+                    user_key = encryption.generate_user_key(user, file_id, _ph)
                     wrapped_seed = encryption.wrap_seed_for_user(seed, user_key)
                     wrapped_seeds[user] = wrapped_seed.hex()
-                    # Store wrapped seed in Firestore via data_manager
                     data_manager.store_wrapped_seed(file_id, user, wrapped_seed)
                     print(f"[FLOW-3] Wrapped seed created and stored in Firestore for user: {user}")
                 
                 # Also wrap for owner
-                owner_key = encryption.generate_user_key(owner_name, file_id)
+                _owner_ph = user_manager.get_user_password_hash(owner_name)
+                owner_key = encryption.generate_user_key(owner_name, file_id, _owner_ph)
                 wrapped_seed = encryption.wrap_seed_for_user(seed, owner_key)
                 wrapped_seeds[owner_name] = wrapped_seed.hex()
-                # Store wrapped seed in Firestore via data_manager
                 data_manager.store_wrapped_seed(file_id, owner_name, wrapped_seed)
                 print(f"[FLOW-3] Wrapped seed created and stored in Firestore for owner: {owner_name}")
                 
@@ -526,7 +530,12 @@ def api_upload():
         blockchain.log_access_control(file_id, access_log)
         wrapped_seeds = {}
         for user in auth_users + [owner_name]:
-            user_key = encryption.generate_user_key(user, file_id)
+            # FIX: pass password hash so key is not derivable from public info
+            _ph = user_manager.get_user_password_hash(user)
+            if not _ph:
+                print(f"[API Upload] WARNING: user '{user}' not found, skipping seed wrap")
+                continue
+            user_key = encryption.generate_user_key(user, file_id, _ph)
             wrapped_seed = encryption.wrap_seed_for_user(seed, user_key)
             wrapped_seeds[user] = wrapped_seed.hex()
             data_manager.store_wrapped_seed(file_id, user, wrapped_seed)
@@ -599,7 +608,11 @@ def api_decrypt(file_id):
     if not wrapped_seed:
         return jsonify({'success': False, 'message': 'No key found for user'}), 404
     try:
-        user_key = encryption.generate_user_key(user_name, file_id)
+        # FIX: pass password hash for key derivation
+        _ph = user_manager.get_user_password_hash(user_name)
+        if not _ph:
+            return jsonify({'success': False, 'message': 'User key material unavailable'}), 500
+        user_key = encryption.generate_user_key(user_name, file_id, _ph)
         seed = encryption.unwrap_seed_for_user(wrapped_seed, user_key)
         decrypted_content = encryption.decrypt_chc(encrypted_content, seed)
         access_log = {
