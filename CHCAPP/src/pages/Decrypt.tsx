@@ -1,4 +1,5 @@
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { BiLockOpen, BiFile, BiUser, BiGroup, BiChevronLeft, BiShield, BiCheckCircle } from 'react-icons/bi'
 import { getCurrentUser, getAuthToken, apiGet } from '../utils/api'

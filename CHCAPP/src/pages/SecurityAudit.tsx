@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { BiShield, BiFile, BiUser, BiGroup, BiChevronLeft, BiLockOpen, BiListUl, BiCloudUpload, BiCheckCircle, BiXCircle, BiErrorAlt } from 'react-icons/bi'
+import { BiShield, BiFile, BiChevronLeft, BiLockOpen, BiListUl, BiCloudUpload, BiCheckCircle, BiXCircle, BiErrorAlt } from 'react-icons/bi'
 import { apiGet } from '../utils/api'
 
 export default function SecurityAudit() {
@@ -187,7 +187,7 @@ export default function SecurityAudit() {
         {auditData.audit_trail.length > 0 ? (
           <div className="relative pl-8">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-300 dark:bg-slate-600"></div>
-            {auditData.audit_trail.map((event, index) => (
+            {auditData.audit_trail.map((event: any, index: number) => (
               <div key={index} className="relative mb-6">
                 <div className={`absolute left-0 top-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800 ${getEventColor(event.event)}`}></div>
                 <div className="ml-6 bg-slate-50 dark:bg-slate-700 rounded-lg p-4 border-l-4 border-blue-600">
@@ -195,7 +195,7 @@ export default function SecurityAudit() {
                     <div className="flex items-center space-x-2">
                       {getEventIcon(event.event)}
                       <h6 className="font-semibold text-gray-800 dark:text-white">
-                        {event.event.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {event.event.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                       </h6>
                     </div>
                     <small className="text-gray-500 dark:text-gray-400">{event.timestamp}</small>

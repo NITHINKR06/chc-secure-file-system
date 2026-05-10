@@ -120,7 +120,7 @@ export default function Files() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                  {files.map((file, index) => (
+                  {files.map((file) => (
                     <tr key={file.file_id} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
