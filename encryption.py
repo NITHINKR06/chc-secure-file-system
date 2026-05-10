@@ -2,250 +2,251 @@
 CHC (Contextual Hash Chain) Encryption Module
 Implements blockchain-linked contextual encryption for secure cloud storage
 
-This module provides the core encryption functionality for the secure file management system.
-It implements the CHC algorithm which provides forward security through state chaining,
-ensuring that each block's encryption depends on the previous ciphertext blocks.
-
-Key Features:
-- Contextual seed derivation from blockchain context
-- CHC encryption with forward security
-- User-specific key management
-- Secure seed wrapping/unwrapping
+CHANGES FROM ORIGINAL:
+  1. generate_user_key() — now requires the user's hashed password as a secret
+     input so the key is not derivable from public data alone.
+  2. wrap_seed_for_user() / unwrap_seed_for_user() — replaced bare XOR with
+     Fernet (AES-128-CBC + HMAC-SHA256) so wrapped seeds have authenticated
+     encryption and are not malleable.
+  3. get_or_create_owner_secret() — secrets are now persisted to
+     secure_storage/key_vault/owner_secrets.json (encrypted with the system
+     master key) so they survive server restarts.
 """
 
-import os  # For generating random bytes and file operations
-import hmac  # For HMAC-SHA256 cryptographic operations
-import hashlib  # For SHA256 hash functions
-import math  # For mathematical operations (ceil function)
-from typing import Tuple, Dict  # Type hints for better code documentation
+import os
+import hmac
+import hashlib
+import math
+import json
+import base64
+from typing import Dict
 
-# Configuration constants
-BLOCK_SIZE = 32  # bytes per block for CHC encryption - 32 bytes provides good security and performance
+from cryptography.fernet import Fernet
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+BLOCK_SIZE = 32          # bytes per CHC block
+_SECRETS_PATH = os.path.join("secure_storage", "key_vault", "owner_secrets.json")
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _get_system_fernet() -> Fernet:
+    """
+    Return a Fernet instance keyed by the system master key.
+    The master key is read from secure_storage/key_vault/.master.key
+    (written on first run by data_manager.KeyManager).
+    """
+    master_key_path = os.path.join("secure_storage", "key_vault", ".master.key")
+    if not os.path.exists(master_key_path):
+        raise FileNotFoundError(
+            f"Master key not found at {master_key_path}. "
+            "Run the application once so KeyManager can initialise it."
+        )
+    with open(master_key_path, "rb") as fh:
+        raw = fh.read().strip()
+    # raw is stored as a hex string by KeyManager
+    key_bytes = bytes.fromhex(raw.decode()) if len(raw) == 64 else raw
+    # Fernet needs a 32-byte URL-safe base64 key
+    fernet_key = base64.urlsafe_b64encode(key_bytes[:32])
+    return Fernet(fernet_key)
+
+
+# ---------------------------------------------------------------------------
+# Core crypto primitives (unchanged)
+# ---------------------------------------------------------------------------
 
 def hmac_sha256(key: bytes, msg: bytes) -> bytes:
-    """
-    Generate HMAC-SHA256 hash for cryptographic operations
-    
-    HMAC (Hash-based Message Authentication Code) provides:
-    - Authentication: Verifies data hasn't been tampered with
-    - Integrity: Ensures data hasn't been modified
-    - Security: Cryptographically secure hash function
-    
-    Args:
-        key: The secret key for HMAC
-        msg: The message to hash
-    Returns:
-        32-byte HMAC-SHA256 hash
-    """
+    """Generate HMAC-SHA256 hash."""
     return hmac.new(key, msg, hashlib.sha256).digest()
 
+
 def xor_bytes(a: bytes, b: bytes) -> bytes:
-    """
-    XOR two byte strings for encryption operations
-    
-    XOR is used in the CHC algorithm for:
-    - Encrypting plaintext with keystream
-    - Wrapping/unwrapping seeds for users
-    - Providing reversible encryption operations
-    
-    Args:
-        a: First byte string
-        b: Second byte string
-    Returns:
-        XOR result of the two byte strings
-    """
+    """XOR two equal-length byte strings."""
     return bytes(x ^ y for x, y in zip(a, b))
 
-def derive_seed(owner_secret: bytes, block_hash: str, timestamp: float, file_id: str) -> bytes:
+
+# ---------------------------------------------------------------------------
+# Seed derivation (unchanged)
+# ---------------------------------------------------------------------------
+
+def derive_seed(owner_secret: bytes, block_hash: str,
+                timestamp: float, file_id: str) -> bytes:
     """
-    Derive a unique seed from blockchain context and owner secret
-    
-    This is the core of the contextual encryption system. The seed is derived from:
-    - Owner's master secret (provides ownership control)
-    - Blockchain block hash (provides immutability and context)
-    - Timestamp (provides uniqueness and temporal context)
-    - File ID (provides file-specific context)
-    
-    This ensures that:
-    - Each file gets a unique encryption seed
-    - The seed is tied to blockchain context (tamper-proof)
-    - Only the owner can derive the seed
-    - The seed cannot be guessed or brute-forced
-    
-    Args:
-        owner_secret: Owner's master secret (32 bytes) - provides ownership control
-        block_hash: Hash of the blockchain block - provides immutability
-        timestamp: Block timestamp - provides temporal uniqueness
-        file_id: Unique file identifier - provides file-specific context
-    
-    Returns:
-        32-byte seed for encryption - unique for this file and context
+    Derive a unique 32-byte encryption seed from blockchain context.
+
+    seed = HMAC-SHA256(owner_secret, block_hash || timestamp || file_id)
     """
-    # Combine all context elements to create unique context
     context = block_hash.encode() + str(timestamp).encode() + file_id.encode()
-    
-    # Generate seed using HMAC-SHA256 for cryptographic security
     seed = hmac_sha256(owner_secret, context)
     print(f"[CHC] Seed derived for file {file_id}: {seed.hex()[:16]}...")
     return seed
 
+
+# ---------------------------------------------------------------------------
+# CHC encrypt / decrypt (unchanged)
+# ---------------------------------------------------------------------------
+
 def encrypt_chc(plaintext: bytes, seed: bytes) -> bytes:
-    """
-    Encrypt data using CHC (Contextual Hash Chain) algorithm
-    
-    The CHC algorithm:
-    1. Divides plaintext into blocks
-    2. For each block:
-       - Generates keystream from current state
-       - XORs plaintext with keystream
-       - Updates state using ciphertext block
-    
-    Args:
-        plaintext: Data to encrypt
-        seed: 32-byte encryption seed
-    
-    Returns:
-        Encrypted ciphertext
-    """
+    """Encrypt data using the CHC algorithm."""
     state = seed
     ciphertext = b""
     blocks = math.ceil(len(plaintext) / BLOCK_SIZE)
-    
     print(f"[CHC] Encrypting {len(plaintext)} bytes in {blocks} blocks")
-    
     for i in range(blocks):
-        # Get current block
         start = i * BLOCK_SIZE
         end = min((i + 1) * BLOCK_SIZE, len(plaintext))
         p_block = plaintext[start:end]
-        
-        # Generate keystream for this block
         keystream = hmac_sha256(state, i.to_bytes(4, "big"))
-        
-        # Encrypt block
         c_block = xor_bytes(p_block, keystream[:len(p_block)])
         ciphertext += c_block
-        
-        # Update state with ciphertext block (forward security)
         state = hmac_sha256(state, c_block)
-    
     print(f"[CHC] Encryption complete: {len(ciphertext)} bytes")
     return ciphertext
 
+
 def decrypt_chc(ciphertext: bytes, seed: bytes) -> bytes:
-    """
-    Decrypt data using CHC algorithm
-    
-    Args:
-        ciphertext: Encrypted data
-        seed: 32-byte decryption seed
-    
-    Returns:
-        Decrypted plaintext
-    """
+    """Decrypt data using the CHC algorithm."""
     state = seed
     plaintext = b""
     blocks = math.ceil(len(ciphertext) / BLOCK_SIZE)
-    
     print(f"[CHC] Decrypting {len(ciphertext)} bytes in {blocks} blocks")
-    
     for i in range(blocks):
-        # Get current block
         start = i * BLOCK_SIZE
         end = min((i + 1) * BLOCK_SIZE, len(ciphertext))
         c_block = ciphertext[start:end]
-        
-        # Generate keystream for this block
         keystream = hmac_sha256(state, i.to_bytes(4, "big"))
-        
-        # Decrypt block
         p_block = xor_bytes(c_block, keystream[:len(c_block)])
         plaintext += p_block
-        
-        # Update state with ciphertext block
         state = hmac_sha256(state, c_block)
-    
     print(f"[CHC] Decryption complete: {len(plaintext)} bytes")
     return plaintext
 
-def generate_user_key(user_name: str, file_id: str) -> bytes:
+
+# ---------------------------------------------------------------------------
+# FIX 1 — User key derivation now requires a secret (password hash)
+# ---------------------------------------------------------------------------
+
+def generate_user_key(user_name: str, file_id: str,
+                      user_password_hash: str) -> bytes:
     """
-    Generate a user-specific key for seed wrapping
-    
-    Args:
-        user_name: Name of the user
-        file_id: File identifier
-    
-    Returns:
-        32-byte user key
+    Derive a user-specific wrapping key.
+
+    CHANGE: A third argument `user_password_hash` (the hex PBKDF2 digest
+    stored in users.json) is now required.  This makes the key unguessable
+    by anyone who only knows the username and file ID.
+
+    key = HMAC-SHA256(password_hash_bytes, username || ":" || file_id)
     """
-    # Simple key derivation from user name and file ID
-    # In production, this would use proper key management
-    data = f"{user_name}:{file_id}".encode()
-    return hashlib.sha256(data).digest()
+    if not user_password_hash:
+        raise ValueError("user_password_hash is required to derive a user key")
+    secret = bytes.fromhex(user_password_hash)
+    msg = f"{user_name}:{file_id}".encode()
+    return hmac_sha256(secret, msg)
+
+
+# ---------------------------------------------------------------------------
+# FIX 2 — Seed wrapping uses Fernet (authenticated encryption) instead of XOR
+# ---------------------------------------------------------------------------
 
 def wrap_seed_for_user(seed: bytes, user_key: bytes) -> bytes:
     """
-    Wrap the encryption seed for a specific user
-    
-    Args:
-        seed: Master encryption seed
-        user_key: User's key
-    
-    Returns:
-        Wrapped seed
+    Wrap the encryption seed for a specific user using Fernet.
+
+    CHANGE: replaces bare XOR with Fernet so the wrapped seed has
+    authenticated encryption (AES-128-CBC + HMAC-SHA256).  The Fernet
+    token is returned as raw bytes.
     """
-    # XOR-based wrapping (simplified for demo)
-    wrapped = xor_bytes(seed, user_key)
-    return wrapped
+    fernet_key = base64.urlsafe_b64encode(user_key[:32])
+    f = Fernet(fernet_key)
+    token = f.encrypt(seed)          # returns bytes (URL-safe base64 token)
+    return token
+
 
 def unwrap_seed_for_user(wrapped_seed: bytes, user_key: bytes) -> bytes:
     """
-    Unwrap the encryption seed using user's key
-    
-    Args:
-        wrapped_seed: Wrapped seed
-        user_key: User's key
-    
-    Returns:
-        Original seed
+    Unwrap the encryption seed using the user's key.
+
+    CHANGE: mirrors wrap_seed_for_user — uses Fernet.decrypt().
+    Raises cryptography.fernet.InvalidToken if the key is wrong or the
+    token has been tampered with.
     """
-    # XOR-based unwrapping
-    seed = xor_bytes(wrapped_seed, user_key)
+    fernet_key = base64.urlsafe_b64encode(user_key[:32])
+    f = Fernet(fernet_key)
+    seed = f.decrypt(wrapped_seed)   # raises InvalidToken on bad key/tamper
     return seed
 
+
+# ---------------------------------------------------------------------------
+# File ID generation (unchanged)
+# ---------------------------------------------------------------------------
+
 def generate_file_id(filename: str, owner: str) -> str:
-    """
-    Generate a unique file ID
-    
-    Args:
-        filename: Original filename
-        owner: Owner name
-    
-    Returns:
-        Unique file ID
-    """
+    """Generate a unique file ID."""
     import time
     timestamp = str(time.time())
     data = f"{filename}:{owner}:{timestamp}".encode()
-    hash_val = hashlib.sha256(data).hexdigest()
-    return f"file_{hash_val[:12]}"
+    return "file_" + hashlib.sha256(data).hexdigest()[:12]
 
-# Storage for owner secrets (in production, use secure key storage)
-owner_secrets: Dict[str, bytes] = {}
+
+# ---------------------------------------------------------------------------
+# FIX 3 — Owner secrets are persisted so they survive restarts
+# ---------------------------------------------------------------------------
+
+# In-memory cache; populated lazily from disk
+_owner_secrets_cache: Dict[str, bytes] = {}
+
+
+def _load_owner_secrets() -> Dict[str, bytes]:
+    """Load and decrypt owner secrets from disk into the cache."""
+    if not os.path.exists(_SECRETS_PATH):
+        return {}
+    try:
+        f = _get_system_fernet()
+        with open(_SECRETS_PATH, "rb") as fh:
+            encrypted_blob = fh.read()
+        decrypted = f.decrypt(encrypted_blob)
+        raw: Dict[str, str] = json.loads(decrypted.decode())
+        return {owner: bytes.fromhex(secret_hex)
+                for owner, secret_hex in raw.items()}
+    except Exception as exc:
+        print(f"[CHC] WARNING: could not load owner secrets: {exc}")
+        return {}
+
+
+def _save_owner_secrets(secrets: Dict[str, bytes]) -> None:
+    """Encrypt and persist owner secrets to disk."""
+    os.makedirs(os.path.dirname(_SECRETS_PATH), exist_ok=True)
+    try:
+        f = _get_system_fernet()
+        raw = {owner: secret.hex() for owner, secret in secrets.items()}
+        blob = json.dumps(raw).encode()
+        encrypted_blob = f.encrypt(blob)
+        with open(_SECRETS_PATH, "wb") as fh:
+            fh.write(encrypted_blob)
+    except Exception as exc:
+        print(f"[CHC] WARNING: could not persist owner secrets: {exc}")
+
 
 def get_or_create_owner_secret(owner: str) -> bytes:
     """
-    Get or create an owner's master secret
-    
-    Args:
-        owner: Owner name
-    
-    Returns:
-        32-byte master secret
+    Return the owner's master secret, creating and persisting one if needed.
+
+    CHANGE: secrets are now loaded from / saved to an encrypted JSON file on
+    disk so they survive server restarts.  The file is encrypted with the
+    system Fernet key from KeyManager.
     """
-    if owner not in owner_secrets:
-        # Generate new secret for this owner
-        owner_secrets[owner] = os.urandom(32)
+    global _owner_secrets_cache
+
+    # Populate cache from disk on first call
+    if not _owner_secrets_cache:
+        _owner_secrets_cache = _load_owner_secrets()
+
+    if owner not in _owner_secrets_cache:
+        _owner_secrets_cache[owner] = os.urandom(32)
         print(f"[CHC] Generated new master secret for owner: {owner}")
-    return owner_secrets[owner]
+        _save_owner_secrets(_owner_secrets_cache)
+
+    return _owner_secrets_cache[owner]
