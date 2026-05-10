@@ -1,585 +1,380 @@
-# CHC Secure File Management System
+<div align="center">
 
-A secure file management system that implements **blockchain-linked contextual encryption** for maximum security and controlled access. This system demonstrates advanced cryptographic techniques including Contextual Hash Chain (CHC) encryption, blockchain integration, and per-user access control.
+# 🔐 CHC Secure File System
 
-> **Frontend**: The system uses a modern React + TypeScript + Vite frontend (`CHCAPP/`) with a Flask backend API server.
+### Blockchain-Linked Contextual Encryption for Secure Cloud Storage
 
----
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-2.3.3-black?style=flat-square&logo=flask)](https://flask.palletsprojects.com)
+[![React](https://img.shields.io/badge/React-TypeScript-61DAFB?style=flat-square&logo=react)](https://react.dev)
+[![Tailwind](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com)
+[![License](https://img.shields.io/badge/License-Educational-green?style=flat-square)](#license)
 
-## 📊 System Flow Diagram
+A secure file management system implementing **Contextual Hash Chain (CHC)** encryption with blockchain-backed access control, per-user key wrapping, and a full audit trail.
 
-The system implements two main processes: **File Upload and Encryption** and **File Decryption and Access**. The complete flow is illustrated in the diagram below:
+[Features](#-features) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Security](#-security-model) · [Troubleshooting](#-troubleshooting)
 
-![System Flow Diagram](static/flowchart.png)
-
----
-
-## 🏗️ System Architecture & Process Flow
-
-### Process 1: File Upload and Encryption
-
-This process handles secure file upload, encryption, and storage with blockchain integration:
-
-#### Step 1: User Uploads File
-- User selects a file through the web interface
-- File is validated (size, format, etc.)
-- **Error Handling**: If upload fails → Upload Error
-
-#### Step 2: Generate File ID
-- System generates a unique file identifier
-- File ID is based on filename, owner, and timestamp
-
-#### Step 3: Create Blockchain Block
-- A new block is created in the blockchain
-- Block contains file metadata (filename, size, owner, authorized users)
-
-#### Step 4: Get Block Hash and Timestamp
-- System retrieves the cryptographic hash of the block
-- Timestamp is recorded for temporal context
-- These values provide **contextual uniqueness** for encryption
-
-#### Step 5: Derive Seed
-- Encryption seed is derived using:
-  - Owner's master secret
-  - Block hash (from blockchain)
-  - Timestamp
-  - File ID
-- This ensures **unique encryption** for each file
-
-#### Step 6: Encrypt File with CHC Algorithm
-- File is encrypted using Contextual Hash Chain (CHC) algorithm
-- CHC provides **forward security** through state chaining
-- Each block's encryption depends on previous ciphertext
-- **Error Handling**: If encryption fails → Encryption Error
-
-#### Step 7: Store Encrypted File Off Chain
-- Encrypted file is stored in secure off-chain storage (Firestore)
-- Only encrypted data is stored, never plaintext
-- **Error Handling**: If storage fails → Storage Error
-
-#### Step 8: Wrap Seeds for Authorized Users
-- Encryption seed is wrapped (encrypted) for each authorized user
-- Each user gets their own wrapped seed using their user key
-- Owner also gets a wrapped seed for access
-
-#### Step 9: Log to Blockchain for Access Control
-- Access control information is logged to blockchain
-- Includes: owner, authorized users, file ID, block hash
-- Creates immutable audit trail
-- **Error Handling**: If logging fails → Blockchain Logging Error
-
-#### Step 10: File Securely Stored
-- Process completes successfully
-- File is encrypted, stored, and access control is enforced
+</div>
 
 ---
 
-### Process 2: File Decryption and Access
+## ✨ Features
 
-This process handles secure file retrieval, authorization, and decryption:
-
-#### Step 1: User Requests Decryption
-- User requests to decrypt and download a file
-- User provides file ID and their username
-
-#### Step 2: Retrieve Metadata from Blockchain
-- System retrieves file metadata from blockchain
-- Includes: file ID, owner, authorized users, block hash, timestamp
-- **Error Handling**: If metadata not found → Retrieval Error
-
-#### Step 3: Retrieve Encrypted File Off Chain
-- System retrieves the encrypted file from off-chain storage
-- File is fetched from secure storage (Firestore)
-- **Error Handling**: If file not found → Retrieval Error
-
-#### Step 4: Check Authorization
-- System verifies if the requesting user is authorized
-- Checks if user is the owner or in the authorized users list
-- **Error Handling**: 
-  - If not authorized → Not Authorized (access denied)
-  - If error during check → Authorization Error
-
-#### Step 5: Unwrap Seed
-- If authorized, system retrieves the user's wrapped seed
-- Seed is unwrapped (decrypted) using the user's key
-- **Error Handling**: If seed unwrap fails → Decryption Error
-
-#### Step 6: Decrypt File
-- File is decrypted using CHC algorithm and the unwrapped seed
-- CHC decryption reverses the encryption process
-- Plaintext is reconstructed from ciphertext
-- **Error Handling**: If decryption fails → Decryption Error
-
-#### Step 7: Log Success to Blockchain
-- Successful decryption is logged to blockchain
-- Creates audit trail of authorized access
-- **Error Handling**: If logging fails → Blockchain Logging Error
-
-#### Step 8: File Decrypted
-- Process completes successfully
-- Decrypted file is returned to the user
-- User can download and access the file
+| Category | What's included |
+|---|---|
+| 🔒 **Encryption** | CHC algorithm with forward security, HMAC-SHA256 state chaining |
+| 🔑 **Key Management** | Per-user Fernet-wrapped seeds, PBKDF2-derived user keys, encrypted owner secrets |
+| ⛓️ **Blockchain** | Immutable SHA-256 hash chain, tamper-proof audit trail |
+| 👤 **Auth** | PBKDF2-SHA256 passwords, configurable session timeout, role-based access |
+| 🗄️ **Storage** | Firebase Firestore off-chain storage with local fallback |
+| 🖥️ **Frontend** | React + TypeScript + Vite + Tailwind CSS, fully responsive |
 
 ---
 
-## 🔐 Security Features
+## 🏗️ Architecture
 
-### Cryptographic Security
-- **Contextual Encryption**: Each file encrypted with unique blockchain-derived seed
-- **Forward Security**: CHC algorithm prevents retrospective decryption
-- **HMAC-SHA256**: Cryptographically secure hash functions
-- **256-bit Seeds**: Strong encryption keys
+![System Architecture](static/flowchart.png)
 
-### Access Control
-- **Per-User Authorization**: Only authorized users can decrypt files
-- **Cryptographic Enforcement**: Access control enforced through key wrapping
-- **Audit Trail**: All access attempts logged to blockchain
-- **Unauthorized Access Prevention**: Unauthorized users are blocked
+The system is organized into three layers:
 
-### Blockchain Integration
-- **Immutable Records**: Blockchain provides tamper-proof audit trail
-- **Hash Chain**: SHA-256 hash chain ensures integrity
-- **Context Generation**: Block hash and timestamp provide unique context
-- **Access Control Logging**: All operations logged to blockchain
+| Layer | Components | Responsibility |
+|---|---|---|
+| **Presentation** | `CHCAPP` (React) | File upload, decrypt requests, blockchain viewer |
+| **Application Logic** | `app.py`, `auth.py`, `encryption.py`, `blockchain.py`, `data_manager.py` | Auth, CHC encryption, key wrapping, audit logging |
+| **Data & Storage** | Firebase Firestore + local JSON files | Ciphertext, wrapped seeds, metadata, sessions |
 
-### Storage Security
-- **Off-Chain Storage**: Encrypted files stored securely off-chain
-- **Key Vault**: Wrapped seeds stored separately from encrypted files
-- **Metadata Separation**: Metadata and encrypted data stored separately
-- **Backup System**: Automated backup and recovery
+### Upload Flow
 
----
-
-## 🌟 Key Features
-
-### Advanced Security
-- ✅ **Contextual Encryption**: Blockchain-derived unique seeds
-- ✅ **Forward Security**: CHC algorithm with state chaining
-- ✅ **Access Control**: Cryptographically enforced permissions
-- ✅ **Tamper-Proof Records**: Immutable blockchain audit trail
-- ✅ **User Authentication**: Secure session management
-- ✅ **Rate Limiting**: API protection against abuse
-
-### User Management
-- ✅ **User Registration**: Secure user registration
-- ✅ **User Login**: PBKDF2-SHA256 password hashing
-- ✅ **Session Management**: Secure session tokens
-- ✅ **Role-Based Access**: User and admin roles
-- ✅ **Profile Management**: User profile management
-
-### File Management
-- ✅ **File Upload**: Secure file upload with encryption
-- ✅ **File Listing**: View all uploaded files
-- ✅ **File Decryption**: Authorized file decryption
-- ✅ **File Metadata**: View file metadata and audit trail
-- ✅ **Security Audit**: Complete security audit trail
-
-### Blockchain Features
-- ✅ **Blockchain Viewer**: View blockchain records
-- ✅ **Security Audit**: Complete audit trail visualization
-- ✅ **Integrity Verification**: Cryptographic chain validation
-- ✅ **Access Logging**: All operations logged to blockchain
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.8+
-- Node.js 16+ (for frontend)
-- One-time frontend install: run `npm install` inside `CHCAPP/`
-- Firebase account (for cloud storage)
-- Required Python packages (see `requirements.txt`)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Project
-   ```
-
-2. **Install backend dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Set up environment variables**
-   - Create a `.env` file in the root directory
-   - Add your Firebase credentials and configuration
-   - See `CREATE_ENV_FILE.md` for details
-
-4. **Run both backend and frontend together (recommended for development)**
-   ```bash
-   # from the project root
-   python dev_runner.py
-   ```
-   - On Windows PowerShell: `python .\dev_runner.py`
-   - This starts:
-     - Flask API at `http://127.0.0.1:5000`
-     - Vite frontend at `http://127.0.0.1:5173`
-   - Press Ctrl+C once to stop both processes gracefully.
-   - Note: The script assumes you have already run `npm install` once inside `CHCAPP/`.
-
-   If you prefer to run them separately:
-
-   4.a **Run the backend (Flask API) only**
-   ```bash
-   python app.py
-   ```
-   Backend will run on `http://127.0.0.1:5000`
-
-5. **Run the frontend (CHCAPP) only**
-   ```bash
-   cd CHCAPP
-   npm install   # or: yarn install
-   npm run dev   # or: yarn dev
-   ```
-   Frontend will run on `http://127.0.0.1:5173`
-
-6. **Access the application**
-   - Open your browser and navigate to `http://127.0.0.1:5173`
-   - Register a new user or login with existing credentials
-   - Start uploading and managing files
-
----
-
-## 📋 How to Use
-
-### 1. Upload a File
-
-1. Navigate to the **Upload** page
-2. Select a file from your device
-3. Enter **Owner Name** (your username)
-4. Specify **Authorized Users** (comma-separated list of usernames)
-5. Click **Upload**
-
-**What happens:**
-- File is encrypted using CHC algorithm
-- Unique seed is derived from blockchain context
-- Encrypted file is stored off-chain
-- Access control is logged to blockchain
-- Wrapped seeds are created for authorized users
-
-### 2. View Your Files
-
-1. Navigate to the **Files** page
-2. See all uploaded files with metadata
-3. View file details: owner, authorized users, block hash, timestamp
-4. Click **Security** to view audit trail
-5. Click **Decrypt** to access files
-
-### 3. Decrypt a File
-
-1. Click **Decrypt** on any file
-2. Enter your **User Name** (must be authorized)
-3. Click **Decrypt File**
-
-**Access Control:**
-- ✅ **Authorized users**: File decrypts successfully
-- ❌ **Unauthorized users**: Access denied with audit logging
-
-### 4. Security Audit
-
-1. Click **Security** button on any file
-2. View complete audit trail
-3. See security verification results
-4. Monitor access attempts and outcomes
-
----
-
-## 🔧 Technical Implementation
-
-### CHC Encryption Algorithm
-
-The Contextual Hash Chain (CHC) algorithm provides forward security:
-
-```python
-# Seed Generation
-seed = HMAC-SHA256(owner_secret, block_hash + timestamp + file_id)
-
-# CHC Encryption (per block)
-for each block i:
-    keystream = HMAC(state, block_index)
-    ciphertext = plaintext XOR keystream
-    state = HMAC(state, ciphertext)
+```
+User uploads file
+      │
+      ▼
+Generate File ID ──► Create Blockchain Block
+                              │
+                              ▼
+                   Get Block Hash + Timestamp
+                              │
+                              ▼
+              Derive Seed = HMAC(owner_secret, hash‖ts‖id)
+                              │
+                              ▼
+                   CHC Encrypt file (32-byte blocks)
+                              │
+                         ┌────┴────┐
+                         ▼         ▼
+               Store ciphertext  Wrap seed per user
+               (Firestore)       (Fernet + PBKDF2 key)
+                                       │
+                                       ▼
+                            Log access control → Blockchain ✓
 ```
 
-**Key Properties:**
-- **Forward Security**: Each block's encryption depends on previous ciphertext
-- **State Chaining**: State is updated with each encrypted block
-- **Contextual Uniqueness**: Seed derived from blockchain context
-- **Cryptographic Security**: HMAC-SHA256 for all operations
+### Decryption Flow
 
-### Blockchain Integration
-
-- **Immutable Records**: SHA-256 hash chain
-- **Context Generation**: Block hash + timestamp for unique seeds
-- **Audit Trail**: Complete access control logging
-- **Integrity Verification**: Cryptographic chain validation
-
-### Key Management
-
-- **Master Keys**: System and user master keys with Fernet encryption
-- **Wrapped Seeds**: Per-user encrypted seeds for access control
-- **Secure Storage**: Double-encrypted key vault
-- **Key Derivation**: HMAC-based key generation
+```
+User requests file
+      │
+      ▼
+Verify session token
+      │
+      ▼
+Fetch metadata from blockchain
+      │
+      ▼
+Check authorisation (owner or authorised user?)
+      │ ✓
+      ▼
+Unwrap seed with user's Fernet key
+      │
+      ▼
+CHC Decrypt → send plaintext file
+      │
+      ▼
+Log successful access → Blockchain ✓
+```
 
 ---
 
 ## 📁 Project Structure
 
 ```
-Project/
-├── app.py                 # Main Flask application (API server)
-├── dev_runner.py          # Helper to run backend and frontend together
-├── blockchain.py          # Blockchain implementation
-├── encryption.py          # CHC encryption module
-├── auth.py               # User authentication
-├── data_manager.py       # Secure data storage (Firestore)
-├── requirements.txt      # Python dependencies
-├── .env                  # Environment variables (create this)
-├── CHCAPP/               # React + TypeScript frontend
+chc-secure-file-system-main/
+│
+├── app.py                  # Flask API server (all endpoints)
+├── auth.py                 # User auth, sessions, PBKDF2 passwords
+├── encryption.py           # CHC algorithm, key derivation, Fernet wrapping
+├── blockchain.py           # Local SHA-256 hash chain
+├── data_manager.py         # Firestore / local storage abstraction
+├── dev_runner.py           # Starts backend + frontend together
+├── requirements.txt        # Python dependencies
+├── render.yaml             # Render.com deployment config
+├── Procfile                # Gunicorn entry point
+│
+├── CHCAPP/                 # React + TypeScript frontend
 │   ├── src/
-│   │   ├── pages/       # React pages (Upload, Files, etc.)
-│   │   ├── components/  # React components
-│   │   └── utils/       # API utilities
+│   │   ├── pages/          # Upload, Files, Decrypt, Blockchain, etc.
+│   │   ├── components/     # Shared UI components
+│   │   └── utils/api.ts    # Axios API client
 │   ├── public/
-│   │   └── flowchart.png  # System flow diagram
-│   └── package.json     # Node.js dependencies
-├── static/
-│   └── flowchart.png    # System flow diagram
-├── secure_storage/      # Local storage (if not using Firestore)
-│   ├── encrypted_files/ # Encrypted files
-│   ├── key_vault/      # Wrapped seeds
-│   ├── metadata/       # File metadata
-│   └── backups/        # System backups
-└── uploads/            # Temporary file storage
+│   └── package.json
+│
+└── secure_storage/
+    ├── encrypted_files/    # Stored ciphertext
+    ├── key_vault/          # Wrapped seeds + master keys
+    └── metadata/           # File metadata
 ```
 
 ---
 
-## 📊 API Endpoints
+## 🚀 Quick Start
 
-### Authentication Endpoints
-- `POST /api/register` - User registration
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-- `GET /api/auth/check` - Check authentication status
+### Prerequisites
 
-### File Management Endpoints
-- `POST /api/upload` - Upload and encrypt file
-- `GET /api/files` - List all files
-- `POST /api/decrypt/<file_id>` - Decrypt and download file
-- `GET /api/security/<file_id>` - Get security audit trail
+- Python **3.8+**
+- Node.js **16+**
+- A Firebase project (for Firestore) — or use the local fallback
 
-### Blockchain Endpoints
-- `GET /api/blockchain` - Get blockchain data
-- `GET /api/ping` - Health check
-
----
-
-## 🔍 Security Features
-
-### Data Protection
-- **Contextual Encryption**: Each file gets unique seed from blockchain
-- **Forward Security**: CHC provides state chaining
-- **Access Control**: Only authorized users can decrypt
-- **Integrity Verification**: File integrity checked on access
-
-### Audit & Monitoring
-- **Complete Audit Trail**: Every action logged to blockchain
-- **Security Verification**: Cryptographic verification of operations
-- **Access Monitoring**: Track all access attempts
-- **Tamper-Proof Records**: Immutable blockchain records
-
-### User Management
-- **Owner Control**: File owners specify authorized users
-- **User Authentication**: Secure session management
-- **Role-Based Access**: User and admin roles
-- **Session Security**: Secure session tokens
-
----
-
-## 🧪 Testing
-
-> ⚠️ **Automated tests are currently unavailable.**  
-> The former `test/` directory (referenced in earlier documentation) has been removed during recent refactors, so the commands shown in older notes will fail.
-
-Until the automated suite is rebuilt, you can verify the core workflow manually:
+### 1 · Clone & install backend
 
 ```bash
-# 1. Start the backend API (from project root)
-python app.py
-
-# 2. In a second terminal, run the frontend
-cd CHCAPP
-npm install   # first run only
-npm run dev
-
-# 3. Use the UI to:
-#    a) Register/login
-#    b) Upload a file (with authorized users)
-#    c) Decrypt as an authorized user
+git clone <repository-url>
+cd chc-secure-file-system-main
+pip install -r requirements.txt
 ```
 
-Manual verification checklist:
-- ✅ Upload succeeds and shows a new block in the blockchain view
-- ✅ Authorized users can decrypt and download the plaintext
-- ✅ Unauthorized users receive “Access denied” and the attempt is logged
-- ✅ `/api/security/<file_id>` reports a healthy audit trail
+### 2 · Configure environment
 
-If you plan to reintroduce automated tests, recreate the `test/` directory and port the previous CHC flow tests or write fresh pytest suites that hit the REST endpoints.
+Create a `.env` file in the project root:
+
+```env
+# Required
+SECRET_KEY=change_me_to_a_long_random_string
+
+# Admin account (change before first run)
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=StrongPassword123!
+ADMIN_EMAIL=admin@yourdomain.com
+
+# Session timeout in hours (default: 8)
+SESSION_TIMEOUT_HOURS=8
+
+# Firebase (leave blank to use local file storage)
+FIREBASE_CREDENTIALS=path/to/serviceAccountKey.json
+
+# CORS — set to your frontend origin in production
+ALLOWED_ORIGINS=http://localhost:5173
+
+# Flask env
+FLASK_ENV=development
+```
+
+### 3 · Install frontend
+
+```bash
+cd CHCAPP
+npm install       # or: yarn install
+cd ..
+```
+
+### 4 · Run (recommended — starts both together)
+
+```bash
+python dev_runner.py
+```
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:5000 |
+
+Or run them separately:
+
+```bash
+# Terminal 1 — backend
+python app.py
+
+# Terminal 2 — frontend
+cd CHCAPP && npm run dev
+```
+
+---
+
+## 📖 How to Use
+
+### Upload a File
+
+1. Log in and go to **Upload**
+2. Select a file (max 16 MB)
+3. Add comma-separated **Authorized Users** (optional)
+4. Click **Upload** — the file is encrypted and stored immediately
+
+### View & Manage Files
+
+- **Files** page lists all uploads with owner, block hash, and timestamp
+- Click **Security** for the full blockchain audit trail
+- Click **Decrypt** to download a decrypted copy
+
+### Decrypt a File
+
+1. Click **Decrypt** on any file you have access to
+2. Confirm your username and submit
+3. The plaintext file downloads automatically
+
+> Unauthorized attempts are blocked **and** logged to the blockchain.
+
+---
+
+## 🔐 Security Model
+
+### CHC Algorithm
+
+```
+For each 32-byte block i:
+  keystream  = HMAC-SHA256(state, i)
+  ciphertext = plaintext  XOR keystream[:len(block)]
+  state      = HMAC-SHA256(state, ciphertext_block)
+```
+
+Each block's state depends on all previous ciphertext — compromising one block does not reveal earlier plaintext (**forward security**).
+
+### Key Derivation
+
+```
+owner_secret  →  stored encrypted with system Fernet key (survives restarts)
+seed          =  HMAC-SHA256(owner_secret, block_hash ‖ timestamp ‖ file_id)
+user_key      =  HMAC-SHA256(PBKDF2_hash(password), username ‖ ":" ‖ file_id)
+wrapped_seed  =  Fernet.encrypt(seed, user_key)   ← authenticated encryption
+```
+
+### What's Hardened (recent updates)
+
+| Issue | Fix applied |
+|---|---|
+| User keys were derivable from public data | Keys now keyed by PBKDF2 password hash |
+| Seed wrapping used unauthenticated XOR | Replaced with Fernet (AES-128-CBC + HMAC) |
+| Owner secrets lost on server restart | Encrypted & persisted to key vault on disk |
+| Sessions never expired | Configurable timeout via `SESSION_TIMEOUT_HOURS` |
+
+---
+
+## 📊 API Reference
+
+### Auth
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/register` | Register a new user |
+| `POST` | `/api/login` | Login, returns `session_token` |
+| `POST` | `/api/logout` | Invalidate session |
+| `GET` | `/api/auth/check` | Check session validity |
+
+### Files
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/upload` | Upload + encrypt a file |
+| `GET` | `/api/files` | List all files |
+| `POST` | `/api/decrypt/<file_id>` | Decrypt + download a file |
+| `GET` | `/api/security/<file_id>` | Get audit trail for a file |
+
+### Blockchain
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/blockchain` | Full blockchain data |
+| `GET` | `/api/ping` | Health check |
+
+All protected endpoints require:
+```
+Authorization: Bearer <session_token>
+```
+
+---
+
+## ⚙️ Performance
+
+| Operation | Speed |
+|---|---|
+| Encryption | ~315 KB/s |
+| Decryption | ~630 KB/s |
+| Small file round-trip | < 1 ms |
+| Storage overhead | Minimal (stream cipher) |
+
+---
+
+## 🧪 Manual Testing Checklist
+
+Automated tests are not yet included. Verify the core workflow manually:
+
+```bash
+# 1. Start the app
+python dev_runner.py
+
+# 2. In the browser:
+#    a) Register two users (e.g. alice, bob)
+#    b) Log in as alice, upload a file — add bob as an authorized user
+#    c) Log in as bob, decrypt the file ✓
+#    d) Log in as a third user (carol) and attempt to decrypt → Access denied ✓
+#    e) Check /blockchain — both events should be logged ✓
+```
 
 ---
 
 ## 🚨 Troubleshooting
 
-### Common Issues
+**Upload fails**
+- File must be under 16 MB
+- Check Firebase credentials in `.env`
+- Ensure `uploads/` directory exists (created automatically on start)
 
-**File Upload Fails**
-- Check file size (max 16MB)
-- Ensure valid file format
-- Verify owner name provided
-- Check Firebase credentials
+**Decryption fails with "No key found"**
+- The requesting user must be the owner or in the authorized list
+- If files were uploaded before the latest security update, re-upload them (old wrapped seeds are incompatible)
 
-**Decryption Fails**
-- Verify you're an authorized user
-- Check if file exists in system
-- Ensure correct user name
-- Verify wrapped seed exists
+**Sessions expire unexpectedly**
+- Increase `SESSION_TIMEOUT_HOURS` in `.env`
 
-**Security Audit Empty**
-- File may not have been accessed yet
-- Check blockchain integrity
-- Verify file metadata
-- Check access logs
+**Frontend can't reach the API**
+- Confirm Flask is running on port 5000
+- Check `ALLOWED_ORIGINS` matches your frontend URL
 
-**Authentication Issues**
-- Verify session token is valid
-- Check if user exists
-- Ensure correct password
-- Check session expiration
+**Owner secrets missing after restart**
+- Ensure `secure_storage/key_vault/.master.key` exists and is readable
+- Run `python app.py` once to let `KeyManager` initialise it
 
 ---
 
-## 📈 Performance Metrics
+## 🔮 Future Enhancements
 
-- **Encryption Speed**: ~0.0002 seconds for small files
-- **Decryption Speed**: ~0.0001 seconds for small files
-- **Throughput**: ~315 KB/s encryption, ~630 KB/s decryption
-- **Storage Overhead**: Minimal (stream cipher efficiency)
-
----
-
-## 🔄 Backup & Recovery
-
-### Automatic Backups
-- **Complete System Backup**: Files, keys, metadata, blockchain
-- **Timestamped Backups**: Organized by date/time
-- **Restore Capability**: Full system recovery
-- **Integrity Verification**: Backup validation
-
-### Manual Backup
-```bash
-# Create backup via admin dashboard
-# Or programmatically:
-python -c "from data_manager import DataManager; DataManager().create_backup()"
-```
-
----
-
-## 🌐 Web Interface
-
-### Main Pages
-- **Home** (`/`) - System overview and features
-- **Upload** (`/upload`) - File upload interface
-- **Files** (`/files`) - File management and listing
-- **Blockchain** (`/blockchain`) - Blockchain viewer
-- **Security** (`/security/<file_id>`) - Security audit trail
-- **Login** (`/login`) - User authentication
-- **Register** (`/register`) - User registration
-
-### Key Features
-- **Real-time Feedback**: Live updates on all operations
-- **Security Monitoring**: Complete audit trail visualization
-- **User-friendly Interface**: Modern React + Tailwind CSS design
-- **Mobile Support**: Responsive design for all devices
-
----
-
-## 🎯 Success Indicators
-
-When the system is working correctly, you should see:
-
-✅ **File Upload**: "File uploaded successfully! File ID: file_xxxxx"  
-✅ **Encryption**: "File encrypted using CHC algorithm"  
-✅ **Blockchain**: "Access control logged to blockchain"  
-✅ **Decryption**: "File successfully decrypted"  
-✅ **Security**: "Data confidentiality and integrity maintained"
-
----
-
-## 🔧 System Requirements
-
-- **Python**: 3.8 or higher
-- **Node.js**: 16 or higher
-- **Memory**: 512MB RAM minimum
-- **Storage**: 1GB free space
-- **Browser**: Modern browser with JavaScript enabled
-- **OS**: Windows, macOS, or Linux
-
----
-
-## 🚀 Future Enhancements
-
-Potential improvements for production use:
-
-1. **Real Blockchain Integration**: Ethereum, Hyperledger, or other blockchains
-2. **Database Backend**: PostgreSQL, MongoDB for scalability
-3. **Cloud Storage**: AWS S3, Google Cloud Storage integration
-4. **Key Rotation**: Periodic key rotation for long-term security
-5. **Group Access**: Hierarchical permissions and group management
-6. **File Chunking**: Support for large files with chunked encryption
-7. **Hardware Security**: HSM integration for key storage
-8. **API Rate Limiting**: Production-ready API protection
-9. **Multi-Factor Authentication**: Enhanced security for user accounts
-10. **File Versioning**: Version control for uploaded files
+- [ ] Real blockchain integration (Ethereum / Hyperledger)
+- [ ] PostgreSQL / MongoDB for user & session storage
+- [ ] AWS S3 / Google Cloud Storage backend
+- [ ] Periodic key rotation
+- [ ] Group-based hierarchical permissions
+- [ ] Large file chunking support
+- [ ] HSM integration for master key storage
+- [ ] Multi-factor authentication
+- [ ] File versioning
 
 ---
 
 ## 📄 License
 
-This project is for educational and research purposes. It demonstrates advanced cryptographic concepts and secure file management techniques.
+This project is for **educational and research purposes**. It demonstrates advanced cryptographic concepts — contextual encryption, blockchain-backed access control, and authenticated key wrapping — in a practical, runnable system.
 
 ---
 
 ## 🤝 Contributing
 
-This is an academic project demonstrating secure file management with blockchain integration. For educational purposes and research collaboration.
+Academic project — open for research collaboration and educational use.  
+Found a security issue? Please report it responsibly.
 
 ---
 
-## 📚 Documentation
+<div align="center">
 
-Additional documentation available in the project:
+**Built with Flask · React · TypeScript · HMAC-SHA256 · Fernet**
 
-- `CREATE_ENV_FILE.md` - Environment variable setup guide
-- `CHCAPP/README.md` - Frontend documentation
-- Test files in `test/` directory
+*Secure your files. Trust the chain.*
 
----
-
-**🎯 Ready to secure your files? Start by uploading your first file!**
-
-The CHC Secure File Management System provides enterprise-grade security with academic-level cryptographic implementation, making it perfect for understanding advanced security concepts while maintaining practical usability.
-
----
-
-## 📞 Support
-
-For issues, questions, or contributions, please refer to the project documentation or contact the development team.
-
----
-
-**Built with ❤️ using Flask, React, TypeScript, and advanced cryptography**
+</div>
